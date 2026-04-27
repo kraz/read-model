@@ -183,7 +183,7 @@ final class QueryExpressionHelper
             'contains' => $expr->contains($fieldEx, $paramValue, ! $ignoreCase),
             'notcontains', 'doesnotcontain' => $expr->not($expr->contains($fieldEx, $paramValue, ! $ignoreCase)),
             'isempty', 'isnullorempty' => $expr->orX($expr->isNull($fieldEx), $expr->eq($fieldEx, '')),
-            'isnotempty', 'isnotnullorempty' => $expr->andX($expr->not($expr->isNull($fieldEx)), $expr->neq($fieldEx, '')),
+            'isnotempty', 'isnotnullorempty' => $expr->andX($expr->isNotNull($fieldEx), $expr->neq($fieldEx, '')),
             'inlist' => $expr->in($fieldEx, is_string($paramValue) ? array_map('trim', explode(',', $paramValue)) : $paramValue, ! $ignoreCase),
             'notinlist' => $expr->notIn($fieldEx, is_string($paramValue) ? array_map('trim', explode(',', $paramValue)) : $paramValue, ! $ignoreCase),
             default => throw new RuntimeException(sprintf('Unsupported filter operator: "%s"', $operator)),
