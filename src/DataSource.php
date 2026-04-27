@@ -8,7 +8,8 @@ use ArrayIterator;
 use InvalidArgumentException;
 use Iterator;
 use IteratorAggregate;
-use Kraz\ReadModel\Collections\ArrayCollection;
+use Kraz\ReadModel\Collections\Criteria;
+use Kraz\ReadModel\Collections\ReadableCollection;
 use Kraz\ReadModel\Pagination\InMemoryPaginator;
 use Kraz\ReadModel\Pagination\PaginatorInterface;
 use Kraz\ReadModel\Query\QueryExpression;
@@ -22,6 +23,7 @@ use Traversable;
 
 use function count;
 use function is_array;
+use function is_object;
 use function iterator_count;
 use function iterator_to_array;
 
@@ -35,11 +37,11 @@ class DataSource implements ReadDataProviderInterface
 
     private QueryExpressionProviderInterface|null $queryExpressionProvider = null;
     private ReadModelDescriptorFactoryInterface|null $descriptorFactory    = null;
-    /** @phpstan-var ArrayCollection<array-key, T>|null */
-    private ArrayCollection|null $all = null;
-    private bool $paginationDisabled  = false;
-    private int|null $page            = null;
-    private int|null $itemsPerPage    = null;
+    /** @phpstan-var ReadableCollection<array-key, T>|null */
+    private ReadableCollection|null $all = null;
+    private bool $paginationDisabled     = false;
+    private int|null $page               = null;
+    private int|null $itemsPerPage       = null;
 
     /** @phpstan-var callable */
     private mixed $itemNormalizer;
@@ -315,13 +317,20 @@ class DataSource implements ReadDataProviderInterface
             return $cloned;
         }
 
-        if ($cloned->data instanceof ArrayCollection) {
-            if ($this->all === null) {
-                $this->all = new ArrayCollection($cloned->data->toArray());
+        if ($cloned->data instanceof ReadableCollection) {
+            if ($cloned->all === null) {
+                $cloned->all = $cloned->data->matching(new Criteria());
             }
 
-            $descriptor   = $this->getDescriptorFactory()->createReadModelDescriptorFrom($cloned->data);
-            $cloned->data = $this->getQueryExpressionProvider()->apply($cloned->data, $queryExpression, $descriptor);
+            if ($cloned->data->count() > 0) {
+                $model = $cloned->data->first();
+                if (! is_object($model)) {
+                    throw new LogicException('Unsupported operation. The data source elements are not objects.');
+                }
+
+                $descriptor   = $this->getDescriptorFactory()->createReadModelDescriptorFrom($model);
+                $cloned->data = $this->getQueryExpressionProvider()->apply($cloned->data, $queryExpression, $descriptor);
+            }
 
             return $cloned;
         }
@@ -341,10 +350,10 @@ class DataSource implements ReadDataProviderInterface
             $cloned->data = $data;
         }
 
-        if ($cloned->data instanceof ArrayCollection) {
-            if ($this->all !== null) {
-                $cloned->data = $this->all;
-                $this->all    = null;
+        if ($cloned->data instanceof ReadableCollection) {
+            if ($cloned->all !== null) {
+                $cloned->data = $cloned->all;
+                $cloned->all  = null;
             }
         }
 
