@@ -1,0 +1,211 @@
+<?php
+
+/**
+ * DISCLAIMER: The bigger part or all of the source code in this file is taken from the "Doctrine Collections"
+ * [doctrine/collections](https://github.com/doctrine/collections). The file may have modifications from the
+ * original source code in order to comply with the current requirements of this library. The author of these
+ * changes does not pretend or claim any ownership or authorship of the original source code.
+ */
+
+declare(strict_types=1);
+
+namespace Kraz\ReadModel\Collections\Expr;
+
+use Closure;
+use Override;
+use ReflectionClass;
+use RuntimeException;
+
+use function array_all;
+use function array_any;
+use function array_map;
+use function explode;
+use function in_array;
+use function is_array;
+use function is_scalar;
+use function is_string;
+use function iterator_to_array;
+use function mb_strtoupper;
+use function sprintf;
+use function str_contains;
+use function str_ends_with;
+use function str_starts_with;
+
+/**
+ * Walks an expression graph and turns it into a PHP closure.
+ *
+ * This closure can be used with {@Collection#filter()} and is used internally
+ * by {@ArrayCollection#select()}.
+ */
+final class ClosureExpressionVisitor extends ExpressionVisitor
+{
+    /**
+     * Accesses the raw field value of a given object.
+     *
+     * @phpstan-param object|mixed[] $object
+     */
+    public static function getObjectFieldValue(object|array $object, string $field): mixed
+    {
+        if (str_contains($field, '.')) {
+            [$field, $subField] = explode('.', $field, 2);
+            $object             = self::getObjectFieldValue($object, $field);
+
+            return self::getObjectFieldValue($object, $subField);
+        }
+
+        if (is_array($object)) {
+            return $object[$field];
+        }
+
+        $reflectionClass = new ReflectionClass($object);
+
+        while ($reflectionClass && ! $reflectionClass->hasProperty($field)) {
+            $reflectionClass = $reflectionClass->getParentClass();
+        }
+
+        if ($reflectionClass === false) {
+            throw new RuntimeException(sprintf('Field "%s" does not exist in class "%s"', $field, $object::class));
+        }
+
+        $property = $reflectionClass->getProperty($field);
+
+        return $property->getRawValue($object);
+    }
+
+    /** @phpstan-param object|array<string, mixed> $object */
+    public static function getObjectFieldValueCase(object|array $object, string $field, bool $isCaseSensitive): mixed
+    {
+        $value = self::getObjectFieldValue($object, $field);
+
+        if ($isCaseSensitive) {
+            return $value;
+        }
+
+        if (! is_string($value)) {
+            if (is_array($value)) {
+                $value = array_map(static fn ($v) => is_string($v) ? mb_strtoupper($v, 'UTF-8') : $v, $value);
+            }
+
+            return $value;
+        }
+
+        return mb_strtoupper($value, 'UTF-8');
+    }
+
+    /**
+     * Helper for sorting arrays of objects based on multiple fields + orientations.
+     */
+    public static function sortByField(string $name, int $orientation = 1, Closure|null $next = null): Closure
+    {
+        if (! $next) {
+            $next = static fn (mixed $a, mixed $b): int => 0;
+        }
+
+        return static function (mixed $a, mixed $b) use ($name, $next, $orientation): int {
+            $aValue = ClosureExpressionVisitor::getObjectFieldValue($a, $name);
+            $bValue = ClosureExpressionVisitor::getObjectFieldValue($b, $name);
+
+            if ($aValue === $bValue) {
+                return $next($a, $b);
+            }
+
+            return ($aValue > $bValue ? 1 : -1) * $orientation;
+        };
+    }
+
+    #[Override]
+    public function walkComparison(Comparison $comparison): Closure
+    {
+        $field           = $comparison->getField();
+        $value           = $comparison->getValue()->getValue();
+        $isCaseSensitive = $comparison->isCaseSensitive();
+        if (! $isCaseSensitive) {
+            if (is_string($value)) {
+                $value = mb_strtoupper($value, 'UTF-8');
+            }
+
+            if (is_array($value)) {
+                $value = array_map(static fn ($v) => is_string($v) ? mb_strtoupper($v, 'UTF-8') : $v, $value);
+            }
+        }
+
+        return match ($comparison->getOperator()) {
+            Comparison::EQ => static fn (object|array $object): bool => self::getObjectFieldValueCase($object, $field, $isCaseSensitive) === $value,
+            Comparison::NEQ => static fn (object|array $object): bool => self::getObjectFieldValueCase($object, $field, $isCaseSensitive) !== $value,
+            Comparison::LT => static fn (object|array $object): bool => self::getObjectFieldValue($object, $field) < $value,
+            Comparison::LTE => static fn (object|array $object): bool => self::getObjectFieldValue($object, $field) <= $value,
+            Comparison::GT => static fn (object|array $object): bool => self::getObjectFieldValue($object, $field) > $value,
+            Comparison::GTE => static fn (object|array $object): bool => self::getObjectFieldValue($object, $field) >= $value,
+            Comparison::IN => static function (object|array $object) use ($field, $value, $isCaseSensitive): bool {
+                $fieldValue = ClosureExpressionVisitor::getObjectFieldValueCase($object, $field, $isCaseSensitive);
+
+                return in_array($fieldValue, $value, is_scalar($fieldValue));
+            },
+            Comparison::NIN => static function (object|array $object) use ($field, $value, $isCaseSensitive): bool {
+                $fieldValue = ClosureExpressionVisitor::getObjectFieldValueCase($object, $field, $isCaseSensitive);
+
+                return ! in_array($fieldValue, $value, is_scalar($fieldValue));
+            },
+            Comparison::CONTAINS => static fn (object|array $object): bool => str_contains((string) self::getObjectFieldValueCase($object, $field, $isCaseSensitive), (string) $value),
+            Comparison::MEMBER_OF => static function (object|array $object) use ($field, $value): bool {
+                $fieldValues = ClosureExpressionVisitor::getObjectFieldValue($object, $field);
+
+                if (! is_array($fieldValues)) {
+                    $fieldValues = iterator_to_array($fieldValues);
+                }
+
+                return in_array($value, $fieldValues, true);
+            },
+            Comparison::STARTS_WITH => static fn (object|array $object): bool => str_starts_with((string) self::getObjectFieldValueCase($object, $field, $isCaseSensitive), (string) $value),
+            Comparison::ENDS_WITH => static fn (object|array $object): bool => str_ends_with((string) self::getObjectFieldValueCase($object, $field, $isCaseSensitive), (string) $value),
+            default => throw new RuntimeException('Unknown comparison operator: ' . $comparison->getOperator()),
+        };
+    }
+
+    #[Override]
+    public function walkValue(Value $value): mixed
+    {
+        return $value->getValue();
+    }
+
+    #[Override]
+    public function walkCompositeExpression(CompositeExpression $expr): Closure
+    {
+        $expressionList = [];
+
+        foreach ($expr->getExpressionList() as $child) {
+            $expressionList[] = $this->dispatch($child);
+        }
+
+        return match ($expr->getType()) {
+            CompositeExpression::TYPE_AND => $this->andExpressions($expressionList),
+            CompositeExpression::TYPE_OR => $this->orExpressions($expressionList),
+            CompositeExpression::TYPE_NOT => $this->notExpression($expressionList),
+            default => throw new RuntimeException('Unknown composite ' . $expr->getType()),
+        };
+    }
+
+    /** @phpstan-param callable[] $expressions */
+    private function andExpressions(array $expressions): Closure
+    {
+        return static fn (object $object): bool => array_all(
+            $expressions,
+            static fn (callable $expression): bool => (bool) $expression($object),
+        );
+    }
+
+    /** @phpstan-param callable[] $expressions */
+    private function orExpressions(array $expressions): Closure
+    {
+        return static fn (object $object): bool => array_any(
+            $expressions,
+            static fn (callable $expression): bool => (bool) $expression($object),
+        );
+    }
+
+    /** @phpstan-param callable[] $expressions */
+    private function notExpression(array $expressions): Closure
+    {
+        return static fn (object $object) => ! $expressions[0]($object);
+    }
+}

@@ -1,0 +1,45 @@
+{
+    "name": "kraz/read-model",
+    "description": "Domain objects required for implementing a Read Model",
+    "keywords": [
+        "read",
+        "model",
+		"read-model",
+		"domain",
+		"ddd"
+    ],
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Krasen Borisov",
+            "email": "krasen.borisov@gmail.com"
+        }
+    ],
+    "require": {
+        "ext-mbstring": "*",
+        "php": ">=8.4"
+    },
+    "require-dev": {
+        "doctrine/coding-standard": "^14.0",
+        "phpstan/phpstan": "^2.1",
+        "phpstan/phpstan-strict-rules": "^2.0",
+        "phpunit/phpunit": "^13.1"
+    },
+    "autoload": {
+        "psr-4": {
+			"Kraz\\ReadModel\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Kraz\\ReadModel\\Tests\\": "tests/"
+        }
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "dealerdirect/phpcodesniffer-composer-installer": true
+        }
+    },
+    "minimum-stability": "stable"
+}
