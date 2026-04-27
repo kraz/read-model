@@ -6,10 +6,8 @@ namespace Kraz\ReadModel;
 
 use ArrayIterator;
 use InvalidArgumentException;
-use Iterator;
 use IteratorAggregate;
-use Kraz\ReadModel\Collections\Criteria;
-use Kraz\ReadModel\Collections\ReadableCollection;
+use Kraz\ReadModel\Collections\ArrayCollection;
 use Kraz\ReadModel\Pagination\InMemoryPaginator;
 use Kraz\ReadModel\Pagination\PaginatorInterface;
 use Kraz\ReadModel\Query\QueryExpression;
@@ -21,10 +19,11 @@ use LogicException;
 use Override;
 use Traversable;
 
+use function array_pop;
+use function array_values;
 use function count;
 use function is_array;
 use function is_object;
-use function iterator_count;
 use function iterator_to_array;
 
 /**
@@ -37,18 +36,30 @@ class DataSource implements ReadDataProviderInterface
 
     private QueryExpressionProviderInterface|null $queryExpressionProvider = null;
     private ReadModelDescriptorFactoryInterface|null $descriptorFactory    = null;
-    /** @phpstan-var ReadableCollection<array-key, T>|null */
-    private ReadableCollection|null $all = null;
-    private bool $paginationDisabled     = false;
-    private int|null $page               = null;
-    private int|null $itemsPerPage       = null;
+
+    /** @phpstan-var QueryExpression[] */
+    private array $queryExpressions = [];
+    /** @phpstan-var array<int, QueryExpression[]> */
+    private array $queryExpressionsHistory = [];
+
+    /** @phpstan-var callable[] */
+    private array $queryModifiers = [];
+    /** @phpstan-var array<int, callable[]> */
+    private array $queryModifiersHistory = [];
+
+    /** @phpstan-var array{int, int}|null */
+    private array|null $pagination = null;
+    /** @phpstan-var array<int, array{int, int}|null> */
+    private array $paginationHistory = [];
 
     /** @phpstan-var callable */
     private mixed $itemNormalizer;
 
     /** @phpstan-param ReadDataProviderInterface<T>|PaginatorInterface<T>|IteratorAggregate<array-key, T>|iterable<T>|null $data */
-    public function __construct(private ReadDataProviderInterface|PaginatorInterface|IteratorAggregate|iterable|null $data, callable|null $itemNormalizer = null)
-    {
+    public function __construct(
+        private ReadDataProviderInterface|PaginatorInterface|IteratorAggregate|iterable|null $data,
+        callable|null $itemNormalizer = null,
+    ) {
         $this->itemNormalizer = $itemNormalizer ?? static fn (mixed $item): mixed => $item;
     }
 
@@ -56,27 +67,11 @@ class DataSource implements ReadDataProviderInterface
     #[Override]
     public function getIterator(): Traversable
     {
-        $data     = $this->paginator() ?? $this->data;
-        $iterator = null;
-
-        if ($data instanceof IteratorAggregate) {
-            $iterator = $data->getIterator();
-        }
-
-        if ($data instanceof Traversable) {
-            $iterator = $data;
-        }
-
-        if (is_array($data)) {
-            $iterator = new ArrayIterator($data);
-        }
-
-        if ($iterator === null) {
-            return;
-        }
-
-        if ($iterator instanceof Iterator) {
-            $iterator->rewind();
+        $paginator = $this->paginator();
+        if ($paginator !== null) {
+            $iterator = $paginator->getIterator();
+        } else {
+            $iterator = new ArrayIterator($this->filteredItems());
         }
 
         $itemNormalizer = $this->itemNormalizer;
@@ -95,63 +90,29 @@ class DataSource implements ReadDataProviderInterface
     #[Override]
     public function isEmpty(): bool
     {
-        if ($this->data === null) {
-            return true;
-        }
-
-        if ($this->data instanceof ReadDataProviderInterface) {
-            return $this->data->isEmpty();
-        }
-
-        foreach ($this->getIterator() as $item) {
-            return ! is_object($item) && ! is_array($item);
-        }
-
-        return true;
+        return $this->totalCount() === 0;
     }
 
     #[Override]
     public function count(): int
     {
-        if ($this->data === null) {
-            return 0;
-        }
-
-        if ($this->data instanceof ReadDataProviderInterface) {
-            return $this->data->count();
-        }
-
         $paginator = $this->paginator();
         if ($paginator !== null) {
             return $paginator->count();
         }
 
-        if (is_array($this->data)) {
-            return count($this->data);
-        }
-
-        return iterator_count($this->getIterator());
+        return count($this->filteredItems());
     }
 
     #[Override]
     public function totalCount(): int
     {
-        if ($this->data === null) {
-            return 0;
-        }
-
-        if ($this->data instanceof ReadDataProviderInterface) {
-            return $this->data->totalCount();
-        }
-
         $paginator = $this->paginator();
         if ($paginator !== null) {
             return $paginator->getTotalItems();
         }
 
-        $data = $this->data();
-
-        return count($data);
+        return count($this->filteredItems());
     }
 
     /** @phpstan-return T[] */
@@ -165,13 +126,6 @@ class DataSource implements ReadDataProviderInterface
     #[Override]
     public function getResult(): array|ReadResponse
     {
-        if ($this->data instanceof ReadDataProviderInterface) {
-            /** @phpstan-var ReadDataProviderInterface<T> $data */
-            $data = $this->data;
-
-            return $data->getResult();
-        }
-
         if ($this->isValue()) {
             return $this->data();
         }
@@ -180,7 +134,7 @@ class DataSource implements ReadDataProviderInterface
         $page  = $this->isPaginated() ? ($this->paginator()?->getCurrentPage() ?? 1) : 1;
         $total = $this->totalCount();
 
-        /** @phpstan-var ReadResponse<T> $result  */
+        /** @phpstan-var ReadResponse<T> $result */
         $result = ReadResponse::create($data, $page, $total);
 
         return $result;
@@ -190,15 +144,18 @@ class DataSource implements ReadDataProviderInterface
     #[Override]
     public function paginator(): PaginatorInterface|null
     {
-        if ($this->paginationDisabled || $this->data === null) {
-            return null;
-        }
+        if ($this->pagination !== null) {
+            $items                 = $this->filteredItems();
+            [$page, $itemsPerPage] = $this->pagination;
 
-        if ($this->data instanceof ReadDataProviderInterface) {
             /** @phpstan-var PaginatorInterface<T> $paginator */
-            $paginator = $this->data->paginator();
+            $paginator = new InMemoryPaginator(new ArrayIterator($items), count($items), $page, $itemsPerPage);
 
             return $paginator;
+        }
+
+        if (count($this->queryExpressions) > 0 || count($this->queryModifiers) > 0) {
+            return null;
         }
 
         if ($this->data instanceof PaginatorInterface) {
@@ -208,45 +165,16 @@ class DataSource implements ReadDataProviderInterface
             return $paginator;
         }
 
-        if ($this->page === null || $this->itemsPerPage === null) {
-            return null;
+        if ($this->data instanceof ReadDataProviderInterface) {
+            /** @phpstan-var PaginatorInterface<T>|null $paginator */
+            $paginator = $this->data->paginator();
+
+            return $paginator;
         }
 
-        $items = null;
-
-        if ($this->data instanceof IteratorAggregate) {
-            /** @phpstan-var Traversable<array-key, T> $items */
-            $items = $this->data->getIterator();
-        }
-
-        if ($this->data instanceof Traversable) {
-            /** @phpstan-var Traversable<array-key, T> $items */
-            $items = $this->data;
-        }
-
-        if (is_array($this->data)) {
-            /** @phpstan-var Traversable<array-key, T> $items */
-            $items = new ArrayIterator($this->data);
-        }
-
-        if (! $items instanceof Traversable) {
-            return null;
-        }
-
-        $items = iterator_to_array($items);
-        $count = count($items);
-
-        /** @phpstan-var Traversable<array-key, T> $items */
-        $items = new ArrayIterator($items);
-
-        $itemNormalizer = $this->itemNormalizer;
-        /** @phpstan-var Traversable<array-key, T> $items */
-        $items = new TraversableTransformer($items, $itemNormalizer(...))->getIterator();
-
-        return new InMemoryPaginator($items, $count, $this->page, $this->itemsPerPage);
+        return null;
     }
 
-    /** @phpstan-return static<T> */
     #[Override]
     public function withPagination(int $page, int $itemsPerPage): static
     {
@@ -259,27 +187,9 @@ class DataSource implements ReadDataProviderInterface
         }
 
         /** @phpstan-var static<T> $cloned */
-        $cloned                     = clone $this;
-        $cloned->paginationDisabled = false;
-
-        if ($cloned->data instanceof ReadDataProviderInterface) {
-            /** @phpstan-var ReadDataProviderInterface<T> $data */
-            $data         = $cloned->data->withPagination($page, $itemsPerPage);
-            $cloned->data = $data;
-        }
-
-        if ($cloned->data instanceof PaginatorInterface) {
-            if (! ($page === $cloned->data->getCurrentPage() && $itemsPerPage === $cloned->data->getItemsPerPage())) {
-                throw new InvalidArgumentException('The data provider does not support changing the pagination parameters.');
-            }
-        }
-
-        $cloned->page         = $page;
-        $cloned->itemsPerPage = $itemsPerPage;
-
-        if ($cloned->paginator() === null) {
-            throw new InvalidArgumentException('The data provider does not support pagination.');
-        }
+        $cloned                      = clone $this;
+        $cloned->paginationHistory[] = $cloned->pagination;
+        $cloned->pagination          = [$page, $itemsPerPage];
 
         return $cloned;
     }
@@ -288,17 +198,8 @@ class DataSource implements ReadDataProviderInterface
     public function withoutPagination(): static
     {
         /** @phpstan-var static<T> $cloned */
-        $cloned                     = clone $this;
-        $cloned->paginationDisabled = true;
-
-        if ($cloned->data instanceof ReadDataProviderInterface) {
-            /** @phpstan-var ReadDataProviderInterface<T> $data */
-            $data         = $cloned->data->withoutPagination();
-            $cloned->data = $data;
-        }
-
-        $cloned->page         = null;
-        $cloned->itemsPerPage = null;
+        $cloned             = clone $this;
+        $cloned->pagination = count($cloned->paginationHistory) > 0 ? array_pop($cloned->paginationHistory) : null;
 
         return $cloned;
     }
@@ -307,55 +208,21 @@ class DataSource implements ReadDataProviderInterface
     public function withQueryExpression(QueryExpression $queryExpression): static
     {
         /** @phpstan-var static<T> $cloned */
-        $cloned = clone $this;
+        $cloned                            = clone $this;
+        $cloned->queryExpressionsHistory[] = $cloned->queryExpressions;
+        $cloned->queryExpressions          = [...$cloned->queryExpressions, $queryExpression];
 
-        if ($cloned->data instanceof ReadDataProviderInterface) {
-            /** @phpstan-var ReadDataProviderInterface<T> $data */
-            $data         = $cloned->data->withQueryExpression($queryExpression);
-            $cloned->data = $data;
-
-            return $cloned;
-        }
-
-        if ($cloned->data instanceof ReadableCollection) {
-            if ($cloned->all === null) {
-                $cloned->all = $cloned->data->matching(new Criteria());
-            }
-
-            if ($cloned->data->count() > 0) {
-                $model = $cloned->data->first();
-                if (! is_object($model)) {
-                    throw new LogicException('Unsupported operation. The data source elements are not objects.');
-                }
-
-                $descriptor   = $this->getDescriptorFactory()->createReadModelDescriptorFrom($model);
-                $cloned->data = $this->getQueryExpressionProvider()->apply($cloned->data, $queryExpression, $descriptor);
-            }
-
-            return $cloned;
-        }
-
-        throw new LogicException('Unsupported operation. The data source does not support query expression modifier.');
+        return $cloned;
     }
 
     #[Override]
     public function withoutQueryExpression(): static
     {
         /** @phpstan-var static<T> $cloned */
-        $cloned = clone $this;
-
-        if ($cloned->data instanceof ReadDataProviderInterface) {
-            /** @phpstan-var ReadDataProviderInterface<T> $data */
-            $data         = $cloned->data->withoutQueryExpression();
-            $cloned->data = $data;
-        }
-
-        if ($cloned->data instanceof ReadableCollection) {
-            if ($cloned->all !== null) {
-                $cloned->data = $cloned->all;
-                $cloned->all  = null;
-            }
-        }
+        $cloned                   = clone $this;
+        $cloned->queryExpressions = count($cloned->queryExpressionsHistory) > 0
+            ? array_pop($cloned->queryExpressionsHistory)
+            : [];
 
         return $cloned;
     }
@@ -364,7 +231,7 @@ class DataSource implements ReadDataProviderInterface
     public function withQueryRequest(QueryRequest $queryRequest): static
     {
         /** @phpstan-var static<T> $cloned */
-        $cloned = clone $this;
+        $cloned = $this;
         if ($queryRequest->getQuery() !== null) {
             $cloned = $cloned->withQueryExpression($queryRequest->getQuery());
         }
@@ -376,44 +243,36 @@ class DataSource implements ReadDataProviderInterface
         return $cloned;
     }
 
+    /** @return QueryExpression[] */
     #[Override]
     public function queryExpressions(): array
     {
-        if ($this->data instanceof ReadDataProviderInterface) {
-            return $this->data->queryExpressions();
-        }
-
-        return [];
+        return $this->queryExpressions;
     }
 
     #[Override]
     public function withQueryModifier(callable $modifier): static
     {
-        /** @phpstan-var static<T> $cloned */
-        $cloned = clone $this;
-
-        if ($cloned->data instanceof ReadDataProviderInterface) {
-            /** @phpstan-var ReadDataProviderInterface<T> $data */
-            $data         = $cloned->data->withQueryModifier($modifier);
-            $cloned->data = $data;
-
-            return $cloned;
+        if (! ($this->data instanceof ReadDataProviderInterface)) {
+            throw new LogicException('Unsupported operation. The data source does not support query modifier.');
         }
 
-        throw new LogicException('Unsupported operation. The data source does not support query modifier.');
+        /** @phpstan-var static<T> $cloned */
+        $cloned                          = clone $this;
+        $cloned->queryModifiersHistory[] = $cloned->queryModifiers;
+        $cloned->queryModifiers          = [...$cloned->queryModifiers, $modifier];
+
+        return $cloned;
     }
 
     #[Override]
     public function withoutQueryModifier(): static
     {
         /** @phpstan-var static<T> $cloned */
-        $cloned = clone $this;
-
-        if ($cloned->data instanceof ReadDataProviderInterface) {
-            /** @phpstan-var ReadDataProviderInterface<T> $data */
-            $data         = $cloned->data->withoutQueryModifier();
-            $cloned->data = $data;
-        }
+        $cloned                 = clone $this;
+        $cloned->queryModifiers = count($cloned->queryModifiersHistory) > 0
+            ? array_pop($cloned->queryModifiersHistory)
+            : [];
 
         return $cloned;
     }
@@ -442,5 +301,81 @@ class DataSource implements ReadDataProviderInterface
     public function setDescriptorFactory(ReadModelDescriptorFactoryInterface|null $descriptorFactory): void
     {
         $this->descriptorFactory = $descriptorFactory;
+    }
+
+    /** @phpstan-return list<T> */
+    private function filteredItems(): array
+    {
+        $items = $this->rawItems();
+        if (count($items) === 0 || count($this->queryExpressions) === 0) {
+            /** @phpstan-var list<T> $values */
+            $values = array_values($items);
+
+            return $values;
+        }
+
+        /** @phpstan-var ArrayCollection<array-key, T> $collection */
+        $collection = new ArrayCollection($items);
+        $first      = $collection->first();
+        $descriptor = is_object($first)
+            ? $this->getDescriptorFactory()->createReadModelDescriptorFrom($first)
+            : null;
+
+        foreach ($this->queryExpressions as $queryExpression) {
+            /** @phpstan-var ArrayCollection<array-key, T> $collection */
+            $collection = $this->getQueryExpressionProvider()->apply($collection, $queryExpression, $descriptor);
+        }
+
+        /** @phpstan-var list<T> $values */
+        $values = array_values($collection->toArray());
+
+        return $values;
+    }
+
+    /** @phpstan-return array<array-key, T> */
+    private function rawItems(): array
+    {
+        if ($this->data === null) {
+            return [];
+        }
+
+        if ($this->data instanceof ReadDataProviderInterface) {
+            $provider = $this->data;
+            foreach ($this->queryModifiers as $modifier) {
+                /** @phpstan-var ReadDataProviderInterface<T> $provider */
+                $provider = $provider->withQueryModifier($modifier);
+            }
+
+            /** @phpstan-var array<array-key, T> $data */
+            $data = $provider->data();
+
+            return $data;
+        }
+
+        if (is_array($this->data)) {
+            /** @phpstan-var array<array-key, T> $data */
+            $data = $this->data;
+
+            return $data;
+        }
+
+        if ($this->data instanceof PaginatorInterface) {
+            /** @phpstan-var array<array-key, T> $data */
+            $data = iterator_to_array($this->data->getIterator());
+
+            return $data;
+        }
+
+        if ($this->data instanceof IteratorAggregate) {
+            /** @phpstan-var array<array-key, T> $data */
+            $data = iterator_to_array($this->data->getIterator());
+
+            return $data;
+        }
+
+        /** @phpstan-var array<array-key, T> $data */
+        $data = iterator_to_array($this->data);
+
+        return $data;
     }
 }
