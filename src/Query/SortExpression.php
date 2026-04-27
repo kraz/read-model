@@ -186,21 +186,25 @@ final class SortExpression implements JsonSerializable, Stringable
     }
 
     /**
-     * @phpstan-param array<string, mixed>  $sort
+     * @phpstan-param list<array<string, mixed>>|array<string, mixed> $sort
      * @phpstan-param array<string, string> $mapping
      *
-     * @return array<string, mixed>
+     * @phpstan-return ($sort is list<array<string, mixed>> ? list<array<string, mixed>> : array<string, mixed>)
      */
     public static function applyFieldMapping(array $sort, array $mapping): array
     {
-        return array_map(static function (array $item) use ($mapping) {
+        $isList = array_values($sort) === $sort;
+        /** @phpstan-var list<array<string, mixed>> $result */
+        $result = array_map(static function (array $item) use ($mapping) {
             $field = $item['field'] ?? null;
             if ($field !== null && array_key_exists($field, $mapping)) {
                 $item['field'] = $mapping[$field];
             }
 
             return $item;
-        }, $sort);
+        }, $isList ? $sort : [$sort]);
+
+        return $isList ? $result : $result[0];
     }
 
     /** @phpstan-param SortComposite|array<never, never>|string $sort */
