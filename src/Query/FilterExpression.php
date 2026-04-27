@@ -120,12 +120,12 @@ final class FilterExpression implements JsonSerializable, Stringable
     public function valX(string $field, string $operator, string|int|float|array|null $value, bool $ignoreCase = true): self
     {
         $clone = clone $this;
-        if ($value === null || $value === '' || (is_array($value) && count($value) === 0) && static::operatorRequiresValue($operator)) {
+        if (($value === null || $value === '' || (is_array($value) && count($value) === 0)) && self::operatorRequiresValue($operator)) {
             return $clone;
         }
 
         $filter = ['field' => $field, 'operator' => $operator];
-        if (! is_array($value) || count($value) > 0) {
+        if ($value !== null && $value !== '' && (! is_array($value) || count($value) > 0)) {
             $filter['value'] = $value;
         }
 
