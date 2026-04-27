@@ -1,6 +1,9 @@
 # Read Model
 
-This library provides basic domain objects for easier implementation of Read Models while keeping the infrastructure source code separated.
+Basic domain objects for easier implementation of Read Models. This library does not depend on any infrastructure source code, so it's easier to implement in-memory implementation of the Read Models which is much more optimal for tests and isolating from side effects. 
+
+> [!WARNING]  
+> This library is still work in progress!
 
 ## Acknowledgements
 

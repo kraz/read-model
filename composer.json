@@ -1,6 +1,6 @@
 {
     "name": "kraz/read-model",
-    "description": "Domain objects required for implementing a Read Model",
+    "description": "Read Model Domain implementation",
     "keywords": [
         "read",
         "model",
