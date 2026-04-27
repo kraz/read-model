@@ -26,7 +26,7 @@ use function iterator_count;
 use function iterator_to_array;
 
 /**
- * @template T of object
+ * @template T of object|array<string, mixed>
  * @implements ReadDataProviderInterface<T>
  */
 class DataSource implements ReadDataProviderInterface
