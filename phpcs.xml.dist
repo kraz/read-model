@@ -14,6 +14,10 @@
         <exclude name="SlevomatCodingStandard.Classes.SuperfluousAbstractClassNaming.SuperfluousPrefix"/>
     </rule>
 
+    <rule ref="Squiz.NamingConventions.ValidVariableName.NotCamelCaps">
+        <exclude-pattern>tests/*/Fixtures/*</exclude-pattern>
+    </rule>
+
     <config name="php_version" value="80400"/>
 
     <file>src/</file>
