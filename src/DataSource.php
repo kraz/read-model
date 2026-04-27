@@ -89,7 +89,7 @@ class DataSource implements ReadDataProviderInterface
     #[Override]
     public function isPaginated(): bool
     {
-        return $this->paginator()?->getCurrentPage() !== null;
+        return $this->paginator() !== null;
     }
 
     #[Override]
@@ -104,7 +104,7 @@ class DataSource implements ReadDataProviderInterface
         }
 
         foreach ($this->getIterator() as $item) {
-            return $item === null;
+            return ! is_object($item) && ! is_array($item);
         }
 
         return true;
@@ -117,10 +117,6 @@ class DataSource implements ReadDataProviderInterface
             return 0;
         }
 
-        if (is_array($this->data)) {
-            return count($this->data);
-        }
-
         if ($this->data instanceof ReadDataProviderInterface) {
             return $this->data->count();
         }
@@ -128,6 +124,10 @@ class DataSource implements ReadDataProviderInterface
         $paginator = $this->paginator();
         if ($paginator !== null) {
             return $paginator->count();
+        }
+
+        if (is_array($this->data)) {
+            return count($this->data);
         }
 
         return iterator_count($this->getIterator());
@@ -149,7 +149,7 @@ class DataSource implements ReadDataProviderInterface
             return $paginator->getTotalItems();
         }
 
-        $data = iterator_to_array($this->getIterator());
+        $data = $this->data();
 
         return count($data);
     }
