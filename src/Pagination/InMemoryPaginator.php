@@ -17,7 +17,7 @@ use function iterator_count;
 use function max;
 
 /**
- * @template T of object
+ * @template T of object|array<string, mixed>
  * @implements PaginatorInterface<T>
  */
 final readonly class InMemoryPaginator implements PaginatorInterface
