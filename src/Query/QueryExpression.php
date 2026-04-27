@@ -38,6 +38,11 @@ use function sprintf;
  *     sort?: SortComposite|array<never, never>|null,
  *     values?: list<int|string>|null
  * }
+ * @phpstan-type QueryExpressionCompositeFull = array{
+ *     filter?: FilterExpression|FilterComposite|array<never, never>|null,
+ *     sort?: SortExpression|SortComposite|array<never, never>|null,
+ *     values?: list<int|string>|null
+ * }
  */
 final class QueryExpression implements JsonSerializable, Stringable
 {
@@ -376,7 +381,7 @@ final class QueryExpression implements JsonSerializable, Stringable
         return self::create($exprJson);
     }
 
-    /** @phpstan-param QueryExpressionComposite|string|null $expression */
+    /** @phpstan-param QueryExpressionCompositeFull|string|null $expression */
     public static function create(string|array|null $expression = null): self
     {
         if (is_string($expression)) {
