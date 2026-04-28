@@ -61,6 +61,7 @@ final class InMemoryPaginatorTest extends TestCase
     public function testNegativeTotalItemsThrows(): void
     {
         $this->expectException(InvalidArgumentException::class);
+        /** @phpstan-ignore argument.type */
         new InMemoryPaginator(new ArrayIterator([]), -1, 1, 10);
     }
 
@@ -73,6 +74,7 @@ final class InMemoryPaginatorTest extends TestCase
     public function testNegativeCurrentPageThrows(): void
     {
         $this->expectException(InvalidArgumentException::class);
+        /** @phpstan-ignore argument.type */
         new InMemoryPaginator(new ArrayIterator([]), 0, -1, 10);
     }
 
@@ -85,6 +87,7 @@ final class InMemoryPaginatorTest extends TestCase
     public function testNegativeItemsPerPageThrows(): void
     {
         $this->expectException(InvalidArgumentException::class);
+        /** @phpstan-ignore argument.type */
         new InMemoryPaginator(new ArrayIterator([]), 0, 1, -5);
     }
 

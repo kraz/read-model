@@ -30,9 +30,18 @@ final class QueryRequest implements JsonSerializable, Stringable
 {
     private function __construct(
         private QueryExpression|null $query = null,
+        /** @phpstan-var int<0, max>|null */
         private int|null $page = null,
+        /** @phpstan-var int<0, max>|null */
         private int|null $itemsPerPage = null,
     ) {
+        if ($page !== null && $page <= 0) {
+            throw new InvalidArgumentException('Expected a positive integer.');
+        }
+
+        if ($itemsPerPage !== null && $itemsPerPage <= 0) {
+            throw new InvalidArgumentException('Expected a positive integer.');
+        }
     }
 
     public function getQuery(): QueryExpression|null
@@ -40,11 +49,13 @@ final class QueryRequest implements JsonSerializable, Stringable
         return $this->query;
     }
 
+    /** @phpstan-return int<0, max>|null */
     public function getPage(): int|null
     {
         return $this->page;
     }
 
+    /** @phpstan-return int<0, max>|null */
     public function getItemsPerPage(): int|null
     {
         return $this->itemsPerPage;
@@ -130,8 +141,20 @@ final class QueryRequest implements JsonSerializable, Stringable
         return $clone;
     }
 
+    /**
+     * @phpstan-param int<0, max> $page
+     * @phpstan-param int<0, max> $itemsPerPage
+     */
     public function withPagination(int $page, int $itemsPerPage): self
     {
+        if ($page <= 0) {
+            throw new InvalidArgumentException('Expected a positive integer.');
+        }
+
+        if ($itemsPerPage <= 0) {
+            throw new InvalidArgumentException('Expected a positive integer.');
+        }
+
         $clone               = clone $this;
         $clone->page         = $page;
         $clone->itemsPerPage = $itemsPerPage;
@@ -157,16 +180,28 @@ final class QueryRequest implements JsonSerializable, Stringable
     /**
      * @phpstan-param array{
      *     query?: QueryExpressionComposite|null,
-     *     page?: int|null,
-     *     itemsPerPage?: int|null
+     *     page?: int<0, max>|null,
+     *     itemsPerPage?: int<0, max>|null
      * } $data
      */
     public function __unserialize(array $data): void
     {
-        $query              = $data['query'] ?? null;
-        $this->query        = $query !== null ? QueryExpression::create($query) : null;
-        $this->page         = $data['page'] ?? null;
-        $this->itemsPerPage = $data['itemsPerPage'] ?? null;
+        $query       = $data['query'] ?? null;
+        $this->query = $query !== null ? QueryExpression::create($query) : null;
+
+        $page         = $data['page'] ?? null;
+        $itemsPerPage = $data['itemsPerPage'] ?? null;
+
+        if ($page !== null && $page <= 0) {
+            throw new InvalidArgumentException('Expected a positive integer.');
+        }
+
+        if ($itemsPerPage !== null && $itemsPerPage <= 0) {
+            throw new InvalidArgumentException('Expected a positive integer.');
+        }
+
+        $this->page         = $page;
+        $this->itemsPerPage = $itemsPerPage;
     }
 
     public function __clone()
@@ -202,11 +237,13 @@ final class QueryRequest implements JsonSerializable, Stringable
             }
         }
 
+        /** @phpstan-var int<0, max> $page */
         $page = $request['page'] ?? null;
         if ($page !== null && ! is_int($page)) {
             throw new InvalidArgumentException('Expected null or an integer.');
         }
 
+        /** @phpstan-var int<0, max> $itemsPerPage */
         $itemsPerPage = $request['itemsPerPage'] ?? $request['pageSize'] ?? null;
         if ($itemsPerPage !== null && ! is_int($itemsPerPage)) {
             throw new InvalidArgumentException('Expected null or an integer.');

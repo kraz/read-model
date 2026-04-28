@@ -14,12 +14,16 @@ use Traversable;
  */
 interface PaginatorInterface extends IteratorAggregate, Countable
 {
+    /** @phpstan-return int<0, max> */
     public function getCurrentPage(): int;
 
+    /** @phpstan-return int<0, max> */
     public function getItemsPerPage(): int;
 
+    /** @phpstan-return int<0, max> */
     public function getLastPage(): int;
 
+    /** @phpstan-return int<0, max> */
     public function getTotalItems(): int;
 
     /** @return Traversable<array-key, T> */

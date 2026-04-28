@@ -9,6 +9,7 @@ use Exception;
 use InvalidArgumentException;
 use IteratorIterator;
 use LimitIterator;
+use Override;
 use ReturnTypeWillChange;
 use Traversable;
 
@@ -22,11 +23,19 @@ use function max;
  */
 final readonly class InMemoryPaginator implements PaginatorInterface
 {
+    /** @phpstan-var int<0, max> */
     private int $offset;
+    /** @phpstan-var int<0, max> */
     private int $limit;
+    /** @phpstan-var int<0, max> */
     private int $lastPage;
 
-    /** @phpstan-param Traversable<T> $items */
+    /**
+     * @phpstan-param Traversable<T> $items
+     * @phpstan-param int<0, max> $totalItems
+     * @phpstan-param int<0, max> $currentPage
+     * @phpstan-param int<0, max> $itemsPerPage
+     */
     public function __construct(
         private Traversable $items,
         private int $totalItems,
@@ -45,32 +54,40 @@ final readonly class InMemoryPaginator implements PaginatorInterface
             throw new InvalidArgumentException('Expected a positive integer.');
         }
 
-        $this->offset   = ($currentPage - 1) * $itemsPerPage;
-        $this->limit    = $itemsPerPage;
-        $this->lastPage = (int) max(1, ceil($totalItems / $itemsPerPage));
+        $this->offset = ($currentPage - 1) * $itemsPerPage;
+        $this->limit  = $itemsPerPage;
+
+        /** @phpstan-var int<0, max> $lastPage */
+        $lastPage       = (int) max(1, ceil($totalItems / $itemsPerPage));
+        $this->lastPage = $lastPage;
     }
 
+    #[Override]
     public function getItemsPerPage(): int
     {
         return $this->itemsPerPage;
     }
 
+    #[Override]
     public function getCurrentPage(): int
     {
         return $this->currentPage;
     }
 
+    #[Override]
     public function getLastPage(): int
     {
         return $this->lastPage;
     }
 
+    #[Override]
     public function getTotalItems(): int
     {
         return $this->totalItems;
     }
 
     /** @throws Exception */
+    #[Override]
     public function count(): int
     {
         return iterator_count($this->getIterator());

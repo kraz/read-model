@@ -18,8 +18,10 @@ use Traversable;
  */
 interface ReadDataProviderInterface extends IteratorAggregate, Countable
 {
+    /** @phpstan-return int<0, max> */
     public function count(): int;
 
+    /** @phpstan-return int<0, max> */
     public function totalCount(): int;
 
     public function isPaginated(): bool;
@@ -44,7 +46,12 @@ interface ReadDataProviderInterface extends IteratorAggregate, Countable
     /** @return PaginatorInterface<T>|null */
     public function paginator(): PaginatorInterface|null;
 
-    /** @return static<T> */
+    /**
+     * @phpstan-param int<0, max> $page
+     * @phpstan-param int<0, max> $itemsPerPage
+     *
+     * @return static<T>
+     */
     public function withPagination(int $page, int $itemsPerPage): static;
 
     /** @return static<T> */
