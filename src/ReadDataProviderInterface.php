@@ -13,8 +13,8 @@ use Kraz\ReadModel\Query\QueryRequest;
 use Traversable;
 
 /**
- * @template T of object|array<string, mixed>
- * @extends IteratorAggregate<array-key, T>
+ * @phpstan-template T of object|array<string, mixed>
+ * @phpstan-extends IteratorAggregate<array-key, T>
  */
 interface ReadDataProviderInterface extends IteratorAggregate, Countable
 {
@@ -50,29 +50,29 @@ interface ReadDataProviderInterface extends IteratorAggregate, Countable
      * @phpstan-param int<0, max> $page
      * @phpstan-param int<0, max> $itemsPerPage
      *
-     * @return static<T>
+     * @phpstan-return static<T>
      */
     public function withPagination(int $page, int $itemsPerPage): static;
 
-    /** @return static<T> */
+    /** @phpstan-return static<T> */
     public function withoutPagination(): static;
 
     /** @return QueryExpression[] */
     public function queryExpressions(): array;
 
-    /** @return static<T> */
+    /** @phpstan-return static<T> */
     public function withQueryExpression(QueryExpression $queryExpression): static;
 
-    /** @return static<T> */
+    /** @phpstan-return static<T> */
     public function withoutQueryExpression(): static;
 
-    /** @return static<T> */
+    /** @phpstan-return static<T> */
     public function withQueryModifier(callable $modifier): static;
 
-    /** @return static<T> */
+    /** @phpstan-return static<T> */
     public function withoutQueryModifier(): static;
 
-    /** @return static<T> */
+    /** @phpstan-return static<T> */
     public function withQueryRequest(QueryRequest $queryRequest): static;
 
     /**
@@ -80,7 +80,7 @@ interface ReadDataProviderInterface extends IteratorAggregate, Countable
      * @phpstan-param array<string, string> $fieldsOperator
      * @phpstan-param array<string, bool>   $fieldsIgnoreCase
      *
-     * @return static<T>
+     * @phpstan-return static<T>
      */
     public function handleInput(array $input, array $fieldsOperator = [], array $fieldsIgnoreCase = []): static;
 
@@ -88,7 +88,7 @@ interface ReadDataProviderInterface extends IteratorAggregate, Countable
      * @phpstan-param array<string, string> $fieldsOperator
      * @phpstan-param array<string, bool>   $fieldsIgnoreCase
      *
-     * @return static<T>
+     * @phpstan-return static<T>
      */
     public function handleRequest(object $request, array $fieldsOperator = [], array $fieldsIgnoreCase = []): static;
 }

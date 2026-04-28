@@ -10,7 +10,7 @@ use Traversable;
 
 use function is_array;
 
-/** @template T of object|array<string, mixed> */
+/** @phpstan-template T of object|array<string, mixed> */
 final readonly class ReadDataProviderPayload
 {
     private int $page;

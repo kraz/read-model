@@ -9,8 +9,8 @@ use IteratorAggregate;
 use Traversable;
 
 /**
- * @template-covariant T of object|array<string, mixed>
- * @extends IteratorAggregate<array-key, T>
+ * @phpstan-template-covariant T of object|array<string, mixed>
+ * @phpstan-extends IteratorAggregate<array-key, T>
  */
 interface PaginatorInterface extends IteratorAggregate, Countable
 {

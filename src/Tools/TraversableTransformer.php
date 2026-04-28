@@ -11,8 +11,8 @@ use Traversable;
 use function call_user_func;
 
 /**
- * @template TKey
- * @template-covariant TValue
+ * @phpstan-template TKey
+ * @phpstan-template-covariant TValue
  * @template-implements IteratorAggregate<TKey, TValue>
  */
 class TraversableTransformer implements IteratorAggregate

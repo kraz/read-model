@@ -79,7 +79,7 @@ final class QueryRequest implements JsonSerializable, Stringable
      *
      * @return ReadDataProviderInterface<T>
      *
-     * @template T of object
+     * @phpstan-template T of object
      */
     public function appendTo(ReadDataProviderInterface $dataProvider): ReadDataProviderInterface
     {

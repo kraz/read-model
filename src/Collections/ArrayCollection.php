@@ -234,7 +234,7 @@ class ArrayCollection implements Collection, Stringable
      *
      * @phpstan-return (TMaybeContained is T ? TKey|false : false)
      *
-     * @template TMaybeContained
+     * @phpstan-template TMaybeContained
      */
     #[Override]
     public function indexOf(mixed $element): int|string|false

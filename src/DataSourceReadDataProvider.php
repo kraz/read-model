@@ -11,7 +11,7 @@ use Kraz\ReadModel\Query\QueryRequest;
 use Override;
 use Traversable;
 
-/** @template-covariant T of object|array<string, mixed> */
+/** @phpstan-template-covariant T of object|array<string, mixed> */
 trait DataSourceReadDataProvider
 {
     /** @phpstan-var ReadDataProviderInterface<T>|null */

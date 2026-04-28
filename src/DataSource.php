@@ -27,11 +27,12 @@ use function is_object;
 use function iterator_to_array;
 
 /**
- * @template T of object|array<string, mixed>
- * @implements ReadDataProviderInterface<T>
+ * @phpstan-template T of object|array<string, mixed>
+ * @phpstan-implements ReadDataProviderInterface<T>
  */
 class DataSource implements ReadDataProviderInterface
 {
+    /** @use BasicReadDataProvider<T> */
     use BasicReadDataProvider;
 
     private QueryExpressionProviderInterface|null $queryExpressionProvider = null;

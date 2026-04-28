@@ -17,7 +17,7 @@ use IteratorAggregate;
 
 /**
  * @phpstan-template TKey of array-key
- * @template-covariant T
+ * @phpstan-template-covariant T
  * @template-extends IteratorAggregate<TKey, T>
  * @template-extends Selectable<TKey, T>
  */
@@ -33,7 +33,7 @@ interface ReadableCollection extends Countable, IteratorAggregate, Selectable
      * @return bool TRUE if the collection contains the element, FALSE otherwise.
      * @phpstan-return (TMaybeContained is T ? bool : false)
      *
-     * @template TMaybeContained
+     * @phpstan-template TMaybeContained
      */
     public function contains(mixed $element): bool;
 
@@ -211,7 +211,7 @@ interface ReadableCollection extends Countable, IteratorAggregate, Selectable
      * @return int|string|bool The key/index of the element or FALSE if the element was not found.
      * @phpstan-return (TMaybeContained is T ? TKey|false : false)
      *
-     * @template TMaybeContained
+     * @phpstan-template TMaybeContained
      */
     public function indexOf(mixed $element): int|string|false;
 

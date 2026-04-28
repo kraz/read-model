@@ -24,12 +24,16 @@ use function str_starts_with;
 
 use const ARRAY_FILTER_USE_KEY;
 
+/** @phpstan-template T of object|array<string, mixed> */
 trait BasicReadDataProvider
 {
+    /** @phpstan-return static<T> */
     abstract public function withQueryExpression(QueryExpression $queryExpression): static;
 
+    /** @phpstan-return static<T> */
     abstract public function withPagination(int $page, int $itemsPerPage): static;
 
+    /** @phpstan-return static<T> */
     abstract public function withoutPagination(): static;
 
     #[Override]
@@ -50,6 +54,7 @@ trait BasicReadDataProvider
         return array_any($this->queryExpressions(), static fn (QueryExpression $queryExpression) => count($queryExpression->getValues() ?? []) > 0);
     }
 
+    /** @phpstan-return static<T> */
     #[Override]
     public function handleInput(array $input, array $fieldsOperator = [], array $fieldsIgnoreCase = []): static
     {
@@ -126,6 +131,7 @@ trait BasicReadDataProvider
             $query   = $query->sortBy($field, $dir);
         }
 
+        /** @phpstan-var static<T> $clone */
         $clone = clone $this;
 
         if ($page > 0 && $pageSize > 0) {
