@@ -682,6 +682,27 @@ final class DataSourceTest extends TestCase
         self::assertSame([99], $this->ids($clone));
     }
 
+    public function testQueryExpressionIsPushedToInnerReadDataProvider(): void
+    {
+        $qe = QueryExpression::create()->andWhere(QueryExpression::create()->expr()->greaterThan('age', 25));
+
+        $inner = $this->createMock(ReadDataProviderInterface::class);
+        $inner->expects(self::once())
+            ->method('withQueryExpression')
+            ->with($qe)
+            ->willReturnSelf();
+        $inner->method('data')->willReturn([
+            new PersonFixture(id: 1, name: 'Alice', age: 30),
+            new PersonFixture(id: 3, name: 'Carol', age: 40),
+        ]);
+
+        /** @var DataSource<PersonFixture> $ds */
+        $ds     = new DataSource($inner);
+        $result = $ds->withQueryExpression($qe)->data();
+
+        self::assertSame([1, 3], $this->ids($result));
+    }
+
     public function testWithoutQueryModifierUndoesLastModifier(): void
     {
         $inner = $this->createStub(ReadDataProviderInterface::class);

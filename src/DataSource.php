@@ -355,8 +355,6 @@ class DataSource implements ReadDataProviderInterface
     /** @phpstan-return list<T> */
     private function filteredItems(): array
     {
-        $items = $this->rawItems();
-
         $specQEs = [];
         foreach ($this->specifications as $specification) {
             $qe = $specification->getQueryExpression();
@@ -369,20 +367,49 @@ class DataSource implements ReadDataProviderInterface
 
         $allQEs = [...$specQEs, ...$this->queryExpressions];
 
-        if (count($items) > 0 && count($allQEs) > 0) {
-            /** @phpstan-var ArrayCollection<array-key, T> $collection */
-            $collection = new ArrayCollection($items);
-            $first      = $collection->first();
-            $descriptor = is_object($first)
-                ? $this->getDescriptorFactory()->createReadModelDescriptorFrom($first)
-                : null;
+        if ($this->data instanceof ReadDataProviderInterface) {
+            $provider = $this->data;
 
-            foreach ($allQEs as $queryExpression) {
-                /** @phpstan-var ArrayCollection<array-key, T> $collection */
-                $collection = $this->getQueryExpressionProvider()->apply($collection, $queryExpression, $descriptor);
+            foreach ($this->queryModifiers as $modifier) {
+                /** @phpstan-var ReadDataProviderInterface<T> $provider */
+                $provider = $provider->withQueryModifier($modifier);
             }
 
-            $items = array_values($collection->toArray());
+            foreach ($allQEs as $qe) {
+                $provider = $provider->withQueryExpression($qe);
+            }
+
+            /** @phpstan-var array<array-key, T> $items */
+            $items = $provider->data();
+        } elseif ($this->data === null) {
+            $items = [];
+        } else {
+            if (is_array($this->data)) {
+                /** @phpstan-var array<array-key, T> $items */
+                $items = $this->data;
+            } elseif ($this->data instanceof IteratorAggregate) {
+                /** @phpstan-var array<array-key, T> $items */
+                $items = iterator_to_array($this->data->getIterator());
+            } else {
+                /** @phpstan-var array<array-key, T> $items */
+                $items = iterator_to_array($this->data);
+            }
+
+            if (count($items) > 0 && count($allQEs) > 0) {
+                /** @phpstan-var ArrayCollection<array-key, T> $collection */
+                $collection = new ArrayCollection($items);
+                $first      = $collection->first();
+                $descriptor = is_object($first)
+                    ? $this->getDescriptorFactory()->createReadModelDescriptorFrom($first)
+                    : null;
+
+                foreach ($allQEs as $queryExpression) {
+                    /** @phpstan-var ArrayCollection<array-key, T> $collection */
+                    $collection = $this->getQueryExpressionProvider()->apply($collection, $queryExpression, $descriptor);
+                }
+
+                $items = array_values($collection->toArray());
+            }
         }
 
         if (count($this->specifications) > 0) {
@@ -403,52 +430,5 @@ class DataSource implements ReadDataProviderInterface
         $values = array_values($items);
 
         return $values;
-    }
-
-    /** @phpstan-return array<array-key, T> */
-    private function rawItems(): array
-    {
-        if ($this->data === null) {
-            return [];
-        }
-
-        if ($this->data instanceof ReadDataProviderInterface) {
-            $provider = $this->data;
-            foreach ($this->queryModifiers as $modifier) {
-                /** @phpstan-var ReadDataProviderInterface<T> $provider */
-                $provider = $provider->withQueryModifier($modifier);
-            }
-
-            /** @phpstan-var array<array-key, T> $data */
-            $data = $provider->data();
-
-            return $data;
-        }
-
-        if (is_array($this->data)) {
-            /** @phpstan-var array<array-key, T> $data */
-            $data = $this->data;
-
-            return $data;
-        }
-
-        if ($this->data instanceof PaginatorInterface) {
-            /** @phpstan-var array<array-key, T> $data */
-            $data = iterator_to_array($this->data->getIterator());
-
-            return $data;
-        }
-
-        if ($this->data instanceof IteratorAggregate) {
-            /** @phpstan-var array<array-key, T> $data */
-            $data = iterator_to_array($this->data->getIterator());
-
-            return $data;
-        }
-
-        /** @phpstan-var array<array-key, T> $data */
-        $data = iterator_to_array($this->data);
-
-        return $data;
     }
 }
