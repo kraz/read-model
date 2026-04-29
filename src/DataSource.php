@@ -273,13 +273,19 @@ class DataSource implements ReadDataProviderInterface
     }
 
     #[Override]
-    public function withoutQueryModifier(): static
+    public function withoutQueryModifier(bool $undo = false): static
     {
         /** @phpstan-var static<T> $cloned */
-        $cloned                 = clone $this;
-        $cloned->queryModifiers = count($cloned->queryModifiersHistory) > 0
-            ? array_pop($cloned->queryModifiersHistory)
-            : [];
+        $cloned = clone $this;
+
+        if ($undo) {
+            $cloned->queryModifiers = count($cloned->queryModifiersHistory) > 0
+                ? array_pop($cloned->queryModifiersHistory)
+                : [];
+        } else {
+            $cloned->queryModifiers        = [];
+            $cloned->queryModifiersHistory = [];
+        }
 
         return $cloned;
     }

@@ -690,7 +690,7 @@ final class DataSourceTest extends TestCase
         /** @var DataSource<PersonFixture> $ds */
         $ds       = new DataSource($inner);
         $modified = $ds->withQueryModifier(static fn (mixed $q): mixed => $q);
-        $cleared  = $modified->withoutQueryModifier();
+        $cleared  = $modified->withoutQueryModifier(true);
 
         self::assertSame([1], $this->ids($cleared));
     }
@@ -705,6 +705,39 @@ final class DataSourceTest extends TestCase
         $cleared = $ds->withoutQueryModifier();
 
         self::assertSame([1], $this->ids($cleared));
+    }
+
+    public function testWithoutQueryModifierDefaultClearsAllModifiers(): void
+    {
+        $inner = $this->createMock(ReadDataProviderInterface::class);
+        $inner->expects(self::never())->method('withQueryModifier');
+        $inner->method('data')->willReturn([new PersonFixture(id: 1)]);
+
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($inner);
+
+        $stacked = $ds
+            ->withQueryModifier(static fn (mixed $q): mixed => $q)
+            ->withQueryModifier(static fn (mixed $q): mixed => $q);
+        $cleared = $stacked->withoutQueryModifier();
+
+        self::assertSame([1], $this->ids($cleared));
+    }
+
+    public function testWithoutQueryModifierDefaultAlsoClearsHistory(): void
+    {
+        $inner = $this->createStub(ReadDataProviderInterface::class);
+        $inner->method('data')->willReturn([new PersonFixture(id: 1)]);
+
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($inner);
+
+        $modified = $ds->withQueryModifier(static fn (mixed $q): mixed => $q);
+        $cleared  = $modified->withoutQueryModifier();
+
+        // History was wiped — undo has nothing to restore, modifiers stay empty
+        $afterUndo = $cleared->withoutQueryModifier(true);
+        self::assertSame([1], $this->ids($afterUndo));
     }
 
     // ------------------------------------------------------------------

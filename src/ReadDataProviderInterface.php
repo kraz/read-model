@@ -67,7 +67,7 @@ interface ReadDataProviderInterface extends IteratorAggregate, Countable
     public function withQueryModifier(callable $modifier): static;
 
     /** @phpstan-return static<T> */
-    public function withoutQueryModifier(): static;
+    public function withoutQueryModifier(bool $undo = false): static;
 
     /** @phpstan-return static<T> */
     public function withQueryRequest(QueryRequest $queryRequest): static;
