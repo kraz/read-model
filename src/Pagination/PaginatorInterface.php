@@ -9,6 +9,8 @@ use IteratorAggregate;
 use Traversable;
 
 /**
+ * Provides domain specific notation for obtaining paginated data information.
+ *
  * @phpstan-template-covariant T of object|array<string, mixed>
  * @phpstan-extends IteratorAggregate<array-key, T>
  */
