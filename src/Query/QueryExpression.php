@@ -118,7 +118,27 @@ final class QueryExpression implements JsonSerializable, Stringable
         return $clone;
     }
 
-    public function wrap(self $queryExpression): self
+    public function wrapAnd(self ...$queryExpression): self
+    {
+        $clone = clone $this;
+        foreach ($queryExpression as $item) {
+            $clone = $clone->wrap($item, FilterExpression::LOGIC_AND);
+        }
+
+        return $clone;
+    }
+
+    public function wrapOr(self ...$queryExpression): self
+    {
+        $clone = clone $this;
+        foreach ($queryExpression as $item) {
+            $clone = $clone->wrap($item, FilterExpression::LOGIC_OR);
+        }
+
+        return $clone;
+    }
+
+    public function wrap(self $queryExpression, string $logicOperator = FilterExpression::LOGIC_AND): self
     {
         $filter     = [];
         $filterItem = $queryExpression->getFilter();
@@ -152,7 +172,11 @@ final class QueryExpression implements JsonSerializable, Stringable
 
         $clone->filter = null;
         if (count($filter) > 0) {
-            $clone->filter = $this->expr()->andX(...$filter);
+            $clone->filter = match ($logicOperator) {
+                FilterExpression::LOGIC_AND => $this->expr()->andX(...$filter),
+                FilterExpression::LOGIC_OR => $this->expr()->orX(...$filter),
+                default => throw new InvalidArgumentException(sprintf('Invalid logic operator "%s" for wrapping the query expression.', $logicOperator)),
+            };
         }
 
         $clone->sort = null;
@@ -166,6 +190,15 @@ final class QueryExpression implements JsonSerializable, Stringable
         }
 
         return $clone;
+    }
+
+    public function invert(): self
+    {
+        return self::create([
+            'filter' => $this->getFilter()?->invert(),
+            'sort' => $this->getSort()?->invert(),
+            'values' => $this->getValues(),
+        ]);
     }
 
     /** @return FilterItem[] */
@@ -204,7 +237,7 @@ final class QueryExpression implements JsonSerializable, Stringable
         return $this->sort;
     }
 
-    /** @return int[]|string[]|null */
+    /** @return list<int|string>|null */
     public function getValues(): array|null
     {
         return $this->values;

@@ -99,6 +99,19 @@ final class SortExpression implements JsonSerializable, Stringable
         return $clone;
     }
 
+    public function invert(): self
+    {
+        return self::create(array_map(static function (array $item) {
+            $item['dir'] = match ($item['dir']) {
+                self::DIR_ASC => self::DIR_DESC,
+                self::DIR_DESC => self::DIR_ASC,
+                default => $item['dir'],
+            };
+
+            return $item;
+        }, $this->items()));
+    }
+
     /** @phpstan-return SortComposite */
     public function sort(): array
     {

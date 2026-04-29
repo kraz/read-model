@@ -60,8 +60,8 @@ use function strtolower;
  */
 final class FilterExpression implements JsonSerializable, Stringable
 {
-    private const string LOGIC_AND = 'and';
-    private const string LOGIC_OR  = 'or';
+    public const string LOGIC_AND = 'and';
+    public const string LOGIC_OR  = 'or';
 
     public const string OP_EQ                  = 'eq'; // (equal to)
     public const string OP_NEQ                 = 'neq'; // (not equal to)
@@ -154,6 +154,11 @@ final class FilterExpression implements JsonSerializable, Stringable
         return $clone;
     }
 
+    public function invert(): self
+    {
+        return self::create()->not(clone $this);
+    }
+
     public function inverted(): bool
     {
         return $this->filter['not'] ?? false;
@@ -169,7 +174,7 @@ final class FilterExpression implements JsonSerializable, Stringable
     {
         return array_values(array_filter(array_map(static function ($filter) {
             if (is_array($filter) || is_string($filter)) {
-                $filter = static::create($filter);
+                $filter = self::create($filter);
             }
 
             if (! $filter instanceof FilterExpression) {
@@ -228,7 +233,7 @@ final class FilterExpression implements JsonSerializable, Stringable
             return null;
         }
 
-        $description = static::getOperatorsDescription()[$operator] ?? null;
+        $description = self::getOperatorsDescription()[$operator] ?? null;
         if ($description === null) {
             return null;
         }
@@ -480,7 +485,7 @@ final class FilterExpression implements JsonSerializable, Stringable
 
     public static function operatorRequiresValue(string $operator): bool
     {
-        return static::getOperatorsDescription()[$operator]['value_required'] ?? false;
+        return self::getOperatorsDescription()[$operator]['value_required'] ?? false;
     }
 
     /** @return array<string, FilterOperatorDescription> */
