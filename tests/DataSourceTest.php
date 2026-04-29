@@ -490,7 +490,7 @@ final class DataSourceTest extends TestCase
         $qry = $qry->andWhere($qry->expr()->equalTo('name', 'Alice'));
 
         $filtered = $ds->withQueryExpression($qry);
-        $restored = $filtered->withoutQueryExpression();
+        $restored = $filtered->withoutQueryExpression(true);
 
         self::assertSame([1, 2, 3], $this->ids($restored));
         self::assertSame([], $restored->queryExpressions());
@@ -508,7 +508,7 @@ final class DataSourceTest extends TestCase
         $second = $second->andWhere($second->expr()->lowerThan('age', 38));
 
         $stacked = $ds->withQueryExpression($first)->withQueryExpression($second);
-        $back    = $stacked->withoutQueryExpression();
+        $back    = $stacked->withoutQueryExpression(true);
 
         self::assertSame([1, 3, 4], $this->ids($back));
         self::assertCount(1, $back->queryExpressions());
@@ -523,6 +523,41 @@ final class DataSourceTest extends TestCase
 
         self::assertSame([1, 2, 3], $this->ids($cleared));
         self::assertSame([], $cleared->queryExpressions());
+    }
+
+    public function testWithoutQueryExpressionDefaultClearsAllExpressions(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->peopleArray());
+
+        $first = QueryExpression::create();
+        $first = $first->andWhere($first->expr()->greaterThan('age', 25));
+
+        $second = QueryExpression::create();
+        $second = $second->andWhere($second->expr()->lowerThan('age', 38));
+
+        $stacked = $ds->withQueryExpression($first)->withQueryExpression($second);
+        $cleared = $stacked->withoutQueryExpression();
+
+        self::assertSame([1, 2, 3, 4, 5], $this->ids($cleared));
+        self::assertSame([], $cleared->queryExpressions());
+    }
+
+    public function testWithoutQueryExpressionDefaultAlsoClearsHistory(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->people());
+
+        $qry = QueryExpression::create();
+        $qry = $qry->andWhere($qry->expr()->equalTo('name', 'Alice'));
+
+        $filtered = $ds->withQueryExpression($qry);
+        $cleared  = $filtered->withoutQueryExpression();
+
+        // After a clear, undo has nothing to restore — should stay empty
+        $afterUndo = $cleared->withoutQueryExpression(true);
+        self::assertSame([], $afterUndo->queryExpressions());
+        self::assertSame([1, 2, 3], $this->ids($afterUndo));
     }
 
     public function testWithQueryExpressionDoesNotMutateOriginal(): void
@@ -547,7 +582,7 @@ final class DataSourceTest extends TestCase
         $qry = $qry->andWhere($qry->expr()->equalTo('name', 'Alice'));
 
         $filtered = $ds->withQueryExpression($qry);
-        $restored = $filtered->withoutQueryExpression();
+        $restored = $filtered->withoutQueryExpression(true);
 
         self::assertSame([1, 2, 3], $this->ids($restored));
         self::assertSame([1], $this->ids($filtered));
@@ -849,7 +884,7 @@ final class DataSourceTest extends TestCase
         $branchA = $ds->withQueryExpression($first);
         $branchB = $branchA->withQueryExpression($second);
 
-        $branchA = $branchA->withoutQueryExpression();
+        $branchA = $branchA->withoutQueryExpression(true);
 
         self::assertSame([1, 4], $this->ids($branchB));
         self::assertSame([1, 2, 3, 4, 5], $this->ids($branchA));

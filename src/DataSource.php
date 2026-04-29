@@ -217,13 +217,19 @@ class DataSource implements ReadDataProviderInterface
     }
 
     #[Override]
-    public function withoutQueryExpression(): static
+    public function withoutQueryExpression(bool $undo = false): static
     {
         /** @phpstan-var static<T> $cloned */
-        $cloned                   = clone $this;
-        $cloned->queryExpressions = count($cloned->queryExpressionsHistory) > 0
-            ? array_pop($cloned->queryExpressionsHistory)
-            : [];
+        $cloned = clone $this;
+
+        if ($undo) {
+            $cloned->queryExpressions = count($cloned->queryExpressionsHistory) > 0
+                ? array_pop($cloned->queryExpressionsHistory)
+                : [];
+        } else {
+            $cloned->queryExpressions        = [];
+            $cloned->queryExpressionsHistory = [];
+        }
 
         return $cloned;
     }

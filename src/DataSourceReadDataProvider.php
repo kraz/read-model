@@ -132,10 +132,10 @@ trait DataSourceReadDataProvider
     }
 
     #[Override]
-    public function withoutQueryExpression(): static
+    public function withoutQueryExpression(bool $undo = false): static
     {
         $clone             = clone $this;
-        $clone->dataSource = $clone->dataSource()->withoutQueryExpression();
+        $clone->dataSource = $clone->dataSource()->withoutQueryExpression($undo);
 
         return $clone;
     }

@@ -19,9 +19,6 @@ use Traversable;
 interface ReadDataProviderInterface extends IteratorAggregate, Countable
 {
     /** @phpstan-return int<0, max> */
-    public function count(): int;
-
-    /** @phpstan-return int<0, max> */
     public function totalCount(): int;
 
     public function isPaginated(): bool;
@@ -64,7 +61,7 @@ interface ReadDataProviderInterface extends IteratorAggregate, Countable
     public function withQueryExpression(QueryExpression $queryExpression): static;
 
     /** @phpstan-return static<T> */
-    public function withoutQueryExpression(): static;
+    public function withoutQueryExpression(bool $undo = false): static;
 
     /** @phpstan-return static<T> */
     public function withQueryModifier(callable $modifier): static;
