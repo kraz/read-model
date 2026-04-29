@@ -10,6 +10,7 @@ use Kraz\ReadModel\Pagination\PaginatorInterface;
 use Kraz\ReadModel\Query\FilterExpression;
 use Kraz\ReadModel\Query\QueryExpression;
 use Kraz\ReadModel\Query\QueryRequest;
+use Kraz\ReadModel\Specification\SpecificationInterface;
 use Traversable;
 
 /**
@@ -137,6 +138,28 @@ interface ReadDataProviderInterface extends IteratorAggregate, Countable
      * @phpstan-return static<T>
      */
     public function withoutQueryModifier(bool $undo = false): static;
+
+    /**
+     * Apply a specification for filtering.
+     *
+     * The specification's getQueryExpression() is used for query-level filtering optimization,
+     * while isSatisfiedBy() is called on each element during iteration.
+     *
+     * @phpstan-param SpecificationInterface<T> $specification
+     *
+     * @phpstan-return static<T>
+     */
+    public function withSpecification(SpecificationInterface $specification): static;
+
+    /**
+     * Remove specification.
+     *
+     * When `$undo` is `TRUE` the specifications are reverted to the state before calling the last
+     * `withSpecification`. When `$undo` is `FALSE` (the default behavior) it clears all applied specifications.
+     *
+     * @phpstan-return static<T>
+     */
+    public function withoutSpecification(bool $undo = false): static;
 
     /**
      * Apply query expression and/or pagination with single request payload

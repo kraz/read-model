@@ -14,11 +14,13 @@ use Kraz\ReadModel\Query\QueryExpression;
 use Kraz\ReadModel\Query\QueryExpressionProvider;
 use Kraz\ReadModel\Query\QueryExpressionProviderInterface;
 use Kraz\ReadModel\Query\QueryRequest;
+use Kraz\ReadModel\Specification\SpecificationInterface;
 use Kraz\ReadModel\Tools\TraversableTransformer;
 use LogicException;
 use Override;
 use Traversable;
 
+use function array_filter;
 use function array_pop;
 use function array_values;
 use function count;
@@ -47,6 +49,11 @@ class DataSource implements ReadDataProviderInterface
     private array $queryModifiers = [];
     /** @phpstan-var array<int, callable[]> */
     private array $queryModifiersHistory = [];
+
+    /** @phpstan-var SpecificationInterface<T>[] */
+    private array $specifications = [];
+    /** @phpstan-var array<int, SpecificationInterface<T>[]> */
+    private array $specificationsHistory = [];
 
     /** @phpstan-var array{int<0, max>, int<0, max>}|null */
     private array|null $pagination = null;
@@ -155,7 +162,7 @@ class DataSource implements ReadDataProviderInterface
             return $paginator;
         }
 
-        if (count($this->queryExpressions) > 0 || count($this->queryModifiers) > 0) {
+        if (count($this->queryExpressions) > 0 || count($this->queryModifiers) > 0 || count($this->specifications) > 0) {
             return null;
         }
 
@@ -291,6 +298,35 @@ class DataSource implements ReadDataProviderInterface
     }
 
     #[Override]
+    public function withSpecification(SpecificationInterface $specification): static
+    {
+        /** @phpstan-var static<T> $cloned */
+        $cloned                          = clone $this;
+        $cloned->specificationsHistory[] = $cloned->specifications;
+        $cloned->specifications          = [...$cloned->specifications, $specification];
+
+        return $cloned;
+    }
+
+    #[Override]
+    public function withoutSpecification(bool $undo = false): static
+    {
+        /** @phpstan-var static<T> $cloned */
+        $cloned = clone $this;
+
+        if ($undo) {
+            $cloned->specifications = count($cloned->specificationsHistory) > 0
+                ? array_pop($cloned->specificationsHistory)
+                : [];
+        } else {
+            $cloned->specifications        = [];
+            $cloned->specificationsHistory = [];
+        }
+
+        return $cloned;
+    }
+
+    #[Override]
     public function handleRequest(object $request, array $fieldsOperator = [], array $fieldsIgnoreCase = []): static
     {
         throw new LogicException('Unsupported operation. The data source can not handle requests.');
@@ -320,27 +356,51 @@ class DataSource implements ReadDataProviderInterface
     private function filteredItems(): array
     {
         $items = $this->rawItems();
-        if (count($items) === 0 || count($this->queryExpressions) === 0) {
-            /** @phpstan-var list<T> $values */
-            $values = array_values($items);
 
-            return $values;
+        $specQEs = [];
+        foreach ($this->specifications as $specification) {
+            $qe = $specification->getQueryExpression();
+            if ($qe === null || $qe->isEmpty()) {
+                continue;
+            }
+
+            $specQEs[] = $qe;
         }
 
-        /** @phpstan-var ArrayCollection<array-key, T> $collection */
-        $collection = new ArrayCollection($items);
-        $first      = $collection->first();
-        $descriptor = is_object($first)
-            ? $this->getDescriptorFactory()->createReadModelDescriptorFrom($first)
-            : null;
+        $allQEs = [...$specQEs, ...$this->queryExpressions];
 
-        foreach ($this->queryExpressions as $queryExpression) {
+        if (count($items) > 0 && count($allQEs) > 0) {
             /** @phpstan-var ArrayCollection<array-key, T> $collection */
-            $collection = $this->getQueryExpressionProvider()->apply($collection, $queryExpression, $descriptor);
+            $collection = new ArrayCollection($items);
+            $first      = $collection->first();
+            $descriptor = is_object($first)
+                ? $this->getDescriptorFactory()->createReadModelDescriptorFrom($first)
+                : null;
+
+            foreach ($allQEs as $queryExpression) {
+                /** @phpstan-var ArrayCollection<array-key, T> $collection */
+                $collection = $this->getQueryExpressionProvider()->apply($collection, $queryExpression, $descriptor);
+            }
+
+            $items = array_values($collection->toArray());
+        }
+
+        if (count($this->specifications) > 0) {
+            $specifications = $this->specifications;
+            $items          = array_values(array_filter($items, static function (mixed $item) use ($specifications): bool {
+                foreach ($specifications as $specification) {
+                    /** @phpstan-var T $item */
+                    if (! $specification->isSatisfiedBy($item)) {
+                        return false;
+                    }
+                }
+
+                return true;
+            }));
         }
 
         /** @phpstan-var list<T> $values */
-        $values = array_values($collection->toArray());
+        $values = array_values($items);
 
         return $values;
     }

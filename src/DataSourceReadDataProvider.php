@@ -8,6 +8,7 @@ use Kraz\ReadModel\Pagination\PaginatorInterface;
 use Kraz\ReadModel\Query\FilterExpression;
 use Kraz\ReadModel\Query\QueryExpression;
 use Kraz\ReadModel\Query\QueryRequest;
+use Kraz\ReadModel\Specification\SpecificationInterface;
 use Override;
 use Traversable;
 
@@ -154,6 +155,24 @@ trait DataSourceReadDataProvider
     {
         $clone             = clone $this;
         $clone->dataSource = $clone->dataSource()->withoutQueryModifier($undo);
+
+        return $clone;
+    }
+
+    #[Override]
+    public function withSpecification(SpecificationInterface $specification): static
+    {
+        $clone             = clone $this;
+        $clone->dataSource = $clone->dataSource()->withSpecification($specification);
+
+        return $clone;
+    }
+
+    #[Override]
+    public function withoutSpecification(bool $undo = false): static
+    {
+        $clone             = clone $this;
+        $clone->dataSource = $clone->dataSource()->withoutSpecification($undo);
 
         return $clone;
     }

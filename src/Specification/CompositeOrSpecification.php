@@ -8,9 +8,7 @@ use Kraz\ReadModel\Query\QueryExpression;
 use Override;
 
 use function array_any;
-use function array_filter;
-use function array_map;
-use function array_values;
+use function count;
 
 /**
  * @phpstan-template T of object|array<string, mixed>
@@ -30,10 +28,19 @@ class CompositeOrSpecification extends CompositeSpecification
     #[Override]
     protected function buildQueryExpression(): QueryExpression|null
     {
-        $items = array_values(array_filter(array_map(
-            static fn (SpecificationInterface $spec) => $spec->getQueryExpression(),
-            $this->specifications(),
-        )));
+        $items = [];
+        foreach ($this->specifications() as $spec) {
+            $qe = $spec->getQueryExpression();
+            if ($qe === null || $qe->isEmpty()) {
+                return null;
+            }
+
+            $items[] = $qe;
+        }
+
+        if (count($items) === 0) {
+            return null;
+        }
 
         return QueryExpression::create()->wrapOr(...$items);
     }
