@@ -580,6 +580,35 @@ final class FilterExpressionTest extends TestCase
         self::assertTrue($result->inverted());
     }
 
+    public function testInvertWrapsWithNotFlag(): void
+    {
+        $expr     = FilterExpression::create()->equalTo('a', 1);
+        $inverted = $expr->invert();
+
+        self::assertTrue($inverted->inverted());
+        self::assertSame('a', $inverted->field());
+        self::assertSame('eq', $inverted->operator());
+    }
+
+    public function testInvertTwiceRestoresOriginalState(): void
+    {
+        $expr           = FilterExpression::create()->equalTo('a', 1);
+        $doubleInverted = $expr->invert()->invert();
+
+        self::assertFalse($doubleInverted->inverted());
+        self::assertSame($expr->toArray(), $doubleInverted->toArray());
+    }
+
+    public function testInvertOnCompositeFilter(): void
+    {
+        $expr     = FilterExpression::create();
+        $and      = $expr->andX($expr->equalTo('a', 1), $expr->equalTo('b', 2));
+        $inverted = $and->invert();
+
+        self::assertTrue($inverted->inverted());
+        self::assertSame('and', $inverted->logic());
+    }
+
     public function testNormalizeReturnsNullForEmpty(): void
     {
         $expr   = FilterExpression::create();

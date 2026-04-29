@@ -378,6 +378,93 @@ final class QueryExpressionTest extends TestCase
         self::assertSame([], $mapped);
     }
 
+    public function testWrapWithOrLogicOperator(): void
+    {
+        $base  = QueryExpression::create();
+        $base  = $base->andWhere($base->expr()->equalTo('a', 1));
+        $other = QueryExpression::create();
+        $other = $other->andWhere($other->expr()->equalTo('b', 2));
+
+        $wrapped = $base->wrap($other, FilterExpression::LOGIC_OR);
+
+        self::assertSame('or', $this->filterOf($wrapped)->logic());
+        self::assertCount(2, $this->filterOf($wrapped)->filters());
+    }
+
+    public function testWrapWithInvalidLogicOperatorThrows(): void
+    {
+        $base  = QueryExpression::create();
+        $base  = $base->andWhere($base->expr()->equalTo('a', 1));
+        $other = QueryExpression::create();
+        $other = $other->andWhere($other->expr()->equalTo('b', 2));
+
+        $this->expectException(InvalidArgumentException::class);
+        $base->wrap($other, 'xor');
+    }
+
+    public function testWrapAndCombinesMultipleExpressionsSequentially(): void
+    {
+        $qry1 = QueryExpression::create();
+        $qry1 = $qry1->andWhere($qry1->expr()->equalTo('a', 1));
+        $qry2 = QueryExpression::create();
+        $qry2 = $qry2->andWhere($qry2->expr()->equalTo('b', 2));
+
+        $wrapped = QueryExpression::create()->wrapAnd($qry1, $qry2);
+
+        $filter = $this->filterOf($wrapped);
+        self::assertSame('and', $filter->logic());
+        self::assertCount(2, $filter->filters());
+    }
+
+    public function testWrapOrCombinesExpressionsWithOrLogic(): void
+    {
+        $qry1 = QueryExpression::create();
+        $qry1 = $qry1->andWhere($qry1->expr()->equalTo('a', 1));
+        $qry2 = QueryExpression::create();
+        $qry2 = $qry2->andWhere($qry2->expr()->equalTo('b', 2));
+
+        $wrapped = QueryExpression::create()->wrapOr($qry1, $qry2);
+
+        $filter = $this->filterOf($wrapped);
+        self::assertSame('or', $filter->logic());
+        self::assertCount(2, $filter->filters());
+    }
+
+    public function testWrapAndWithNoArgsReturnsClone(): void
+    {
+        $qry     = QueryExpression::create();
+        $qry     = $qry->andWhere($qry->expr()->equalTo('a', 1));
+        $wrapped = $qry->wrapAnd();
+
+        self::assertSame($qry->toArray(), $wrapped->toArray());
+    }
+
+    public function testInvertFlipsFilterAndSort(): void
+    {
+        $qry = QueryExpression::create()->sortBy('name', 'asc');
+        $qry = $qry->andWhere($qry->expr()->equalTo('a', 1));
+
+        $inverted = $qry->invert();
+
+        self::assertTrue($this->filterOf($inverted)->inverted());
+        self::assertSame('desc', $inverted->sortDir('name'));
+    }
+
+    public function testInvertPreservesValues(): void
+    {
+        $qry      = QueryExpression::create()->withValues(['x', 'y']);
+        $inverted = $qry->invert();
+
+        self::assertSame(['x', 'y'], $inverted->getValues());
+    }
+
+    public function testInvertOnEmptyIsEmpty(): void
+    {
+        $inverted = QueryExpression::create()->invert();
+
+        self::assertTrue($inverted->isEmpty());
+    }
+
     public function testWrapMergesFiltersAndSorts(): void
     {
         $base = QueryExpression::create()->sortBy('name', 'asc');

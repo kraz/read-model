@@ -205,6 +205,44 @@ final class SortExpressionTest extends TestCase
         self::assertSame(2, $other->count());
     }
 
+    public function testInvertFlipsDirections(): void
+    {
+        $sort     = SortExpression::create()->asc('name')->desc('age');
+        $inverted = $sort->invert();
+
+        self::assertSame('desc', $inverted->dir('name'));
+        self::assertSame('asc', $inverted->dir('age'));
+        self::assertSame(2, $inverted->count());
+    }
+
+    public function testInvertTwiceRestoresOriginal(): void
+    {
+        $sort           = SortExpression::create()->asc('name')->desc('age');
+        $doubleInverted = $sort->invert()->invert();
+
+        self::assertSame($sort->toArray(), $doubleInverted->toArray());
+    }
+
+    public function testInvertEmptyIsEmpty(): void
+    {
+        $sort = SortExpression::create()->invert();
+
+        self::assertTrue($sort->isSortEmpty());
+    }
+
+    public function testInvertPreservesFieldOrder(): void
+    {
+        $sort     = SortExpression::create()->asc('a')->asc('b')->desc('c');
+        $inverted = $sort->invert();
+
+        self::assertSame(1, $inverted->num('a'));
+        self::assertSame(2, $inverted->num('b'));
+        self::assertSame(3, $inverted->num('c'));
+        self::assertSame('desc', $inverted->dir('a'));
+        self::assertSame('desc', $inverted->dir('b'));
+        self::assertSame('asc', $inverted->dir('c'));
+    }
+
     public function testApplyFieldMappingOnList(): void
     {
         $mapped = SortExpression::applyFieldMapping(
