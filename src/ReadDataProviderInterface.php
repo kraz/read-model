@@ -16,7 +16,7 @@ use Traversable;
 /**
  * Provides domain specific notation for working with a Read Model.
  *
- * @phpstan-template T of object|array<string, mixed>
+ * @phpstan-template-covariant T of object|array<string, mixed>
  * @phpstan-extends IteratorAggregate<array-key, T>
  */
 interface ReadDataProviderInterface extends IteratorAggregate, Countable
@@ -63,7 +63,7 @@ interface ReadDataProviderInterface extends IteratorAggregate, Countable
     /**
      * Get structured data object, which is more convenient for transferring state.
      *
-     * @return T[]|ReadResponse<T>
+     * @return T[]|ReadResponse<covariant T>
      */
     public function getResult(): array|ReadResponse;
 
@@ -145,7 +145,7 @@ interface ReadDataProviderInterface extends IteratorAggregate, Countable
      * The specification's getQueryExpression() is used for query-level filtering optimization,
      * while isSatisfiedBy() is called on each element during iteration.
      *
-     * @phpstan-param SpecificationInterface<T> $specification
+     * @phpstan-param SpecificationInterface<contravariant T> $specification
      *
      * @phpstan-return static<T>
      */
