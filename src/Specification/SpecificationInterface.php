@@ -9,7 +9,16 @@ use Kraz\ReadModel\Query\QueryExpression;
 /** @phpstan-template T of object|array<string, mixed> */
 interface SpecificationInterface
 {
-    /** @phpstan-param T $item */
+    /**
+     * Returns true if the given item satisfies this specification.
+     *
+     * The type and state of `$item` depend on the read model implementation and the
+     * underlying data source. Items may be raw, partially normalized, or fully normalized
+     * depending on the query type and the pipeline stage at which this method is called.
+     * Refer to the documentation of the specific data source implementation for details.
+     *
+     * @phpstan-param T $item
+     */
     public function isSatisfiedBy(object|array $item): bool;
 
     /**
