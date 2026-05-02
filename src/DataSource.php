@@ -29,7 +29,7 @@ use function is_object;
 use function iterator_to_array;
 
 /**
- * @phpstan-template T of object|array<string, mixed>
+ * @phpstan-template-covariant T of object|array<string, mixed>
  * @phpstan-implements ReadDataProviderInterface<T>
  */
 class DataSource implements ReadDataProviderInterface
@@ -71,7 +71,6 @@ class DataSource implements ReadDataProviderInterface
         $this->itemNormalizer = $itemNormalizer ?? static fn (mixed $item): mixed => $item;
     }
 
-    /** @return Traversable<array-key, T> */
     #[Override]
     public function getIterator(): Traversable
     {
@@ -123,14 +122,12 @@ class DataSource implements ReadDataProviderInterface
         return count($this->filteredItems());
     }
 
-    /** @phpstan-return T[] */
     #[Override]
     public function data(): array
     {
         return iterator_to_array($this->getIterator());
     }
 
-    /** @phpstan-return T[]|ReadResponse<T> */
     #[Override]
     public function getResult(): array|ReadResponse
     {
@@ -148,7 +145,6 @@ class DataSource implements ReadDataProviderInterface
         return $result;
     }
 
-    /** @return PaginatorInterface<T>|null */
     #[Override]
     public function paginator(): PaginatorInterface|null
     {
@@ -257,7 +253,6 @@ class DataSource implements ReadDataProviderInterface
         return $cloned;
     }
 
-    /** @return QueryExpression[] */
     #[Override]
     public function queryExpressions(): array
     {
