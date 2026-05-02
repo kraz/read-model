@@ -209,12 +209,14 @@ class DataSource implements ReadDataProviderInterface
     }
 
     #[Override]
-    public function withQueryExpression(QueryExpression $queryExpression): static
+    public function withQueryExpression(QueryExpression $queryExpression, bool $append = false): static
     {
         /** @phpstan-var static<T> $cloned */
         $cloned                            = clone $this;
         $cloned->queryExpressionsHistory[] = $cloned->queryExpressions;
-        $cloned->queryExpressions          = [...$cloned->queryExpressions, $queryExpression];
+        $cloned->queryExpressions          = $append
+            ? [...$cloned->queryExpressions, $queryExpression]
+            : [$queryExpression];
 
         return $cloned;
     }
@@ -260,7 +262,7 @@ class DataSource implements ReadDataProviderInterface
     }
 
     #[Override]
-    public function withQueryModifier(callable $modifier): static
+    public function withQueryModifier(callable $modifier, bool $append = false): static
     {
         if (! ($this->data instanceof ReadDataProviderInterface)) {
             throw new LogicException('Unsupported operation. The data source does not support query modifier.');
@@ -269,7 +271,9 @@ class DataSource implements ReadDataProviderInterface
         /** @phpstan-var static<T> $cloned */
         $cloned                          = clone $this;
         $cloned->queryModifiersHistory[] = $cloned->queryModifiers;
-        $cloned->queryModifiers          = [...$cloned->queryModifiers, $modifier];
+        $cloned->queryModifiers          = $append
+            ? [...$cloned->queryModifiers, $modifier]
+            : [$modifier];
 
         return $cloned;
     }
@@ -293,12 +297,14 @@ class DataSource implements ReadDataProviderInterface
     }
 
     #[Override]
-    public function withSpecification(SpecificationInterface $specification): static
+    public function withSpecification(SpecificationInterface $specification, bool $append = false): static
     {
         /** @phpstan-var static<T> $cloned */
         $cloned                          = clone $this;
         $cloned->specificationsHistory[] = $cloned->specifications;
-        $cloned->specifications          = [...$cloned->specifications, $specification];
+        $cloned->specifications          = $append
+            ? [...$cloned->specifications, $specification]
+            : [$specification];
 
         return $cloned;
     }
@@ -367,11 +373,11 @@ class DataSource implements ReadDataProviderInterface
 
             foreach ($this->queryModifiers as $modifier) {
                 /** @phpstan-var ReadDataProviderInterface<T> $provider */
-                $provider = $provider->withQueryModifier($modifier);
+                $provider = $provider->withQueryModifier($modifier, true);
             }
 
             foreach ($allQEs as $qe) {
-                $provider = $provider->withQueryExpression($qe);
+                $provider = $provider->withQueryExpression($qe, true);
             }
 
             /** @phpstan-var array<array-key, T> $items */

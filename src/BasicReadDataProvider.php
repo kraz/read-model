@@ -28,7 +28,7 @@ use const ARRAY_FILTER_USE_KEY;
 trait BasicReadDataProvider
 {
     /** @phpstan-return static<T> */
-    abstract public function withQueryExpression(QueryExpression $queryExpression): static;
+    abstract public function withQueryExpression(QueryExpression $queryExpression, bool $append = false): static;
 
     /** @phpstan-return static<T> */
     abstract public function withPagination(int $page, int $itemsPerPage): static;

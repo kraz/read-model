@@ -124,10 +124,10 @@ trait DataSourceReadDataProvider
     }
 
     #[Override]
-    public function withQueryExpression(QueryExpression $queryExpression): static
+    public function withQueryExpression(QueryExpression $queryExpression, bool $append = false): static
     {
         $clone             = clone $this;
-        $clone->dataSource = $clone->dataSource()->withQueryExpression($queryExpression);
+        $clone->dataSource = $clone->dataSource()->withQueryExpression($queryExpression, $append);
 
         return $clone;
     }
@@ -142,10 +142,10 @@ trait DataSourceReadDataProvider
     }
 
     #[Override]
-    public function withQueryModifier(callable $modifier): static
+    public function withQueryModifier(callable $modifier, bool $append = false): static
     {
         $clone             = clone $this;
-        $clone->dataSource = $clone->dataSource()->withQueryModifier($modifier);
+        $clone->dataSource = $clone->dataSource()->withQueryModifier($modifier, $append);
 
         return $clone;
     }
@@ -160,10 +160,10 @@ trait DataSourceReadDataProvider
     }
 
     #[Override]
-    public function withSpecification(SpecificationInterface $specification): static
+    public function withSpecification(SpecificationInterface $specification, bool $append = false): static
     {
         $clone             = clone $this;
-        $clone->dataSource = $clone->dataSource()->withSpecification($specification);
+        $clone->dataSource = $clone->dataSource()->withSpecification($specification, $append);
 
         return $clone;
     }

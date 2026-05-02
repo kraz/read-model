@@ -299,7 +299,7 @@ final class QueryExpression implements JsonSerializable, Stringable
             return $dataProvider;
         }
 
-        return $dataProvider->withQueryExpression($this);
+        return $dataProvider->withQueryExpression($this, true);
     }
 
     /** @phpstan-return QueryExpressionComposite */

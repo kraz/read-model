@@ -108,9 +108,12 @@ interface ReadDataProviderInterface extends IteratorAggregate, Countable
     /**
      * Apply query expression.
      *
+     * When `$append` is `FALSE` (the default) the existing query expressions are replaced by the given one.
+     * When `$append` is `TRUE` the given query expression is appended to the current list.
+     *
      * @phpstan-return static<T>
      */
-    public function withQueryExpression(QueryExpression $queryExpression): static;
+    public function withQueryExpression(QueryExpression $queryExpression, bool $append = false): static;
 
     /**
      * Remove query expression.
@@ -125,9 +128,12 @@ interface ReadDataProviderInterface extends IteratorAggregate, Countable
     /**
      * Add query modifier function.
      *
+     * When `$append` is `FALSE` (the default) the existing query modifiers are replaced by the given one.
+     * When `$append` is `TRUE` the given modifier is appended to the current list.
+     *
      * @phpstan-return static<T>
      */
-    public function withQueryModifier(callable $modifier): static;
+    public function withQueryModifier(callable $modifier, bool $append = false): static;
 
     /**
      * Remove query modifier.
@@ -145,11 +151,14 @@ interface ReadDataProviderInterface extends IteratorAggregate, Countable
      * The specification's getQueryExpression() is used for query-level filtering optimization,
      * while isSatisfiedBy() is called on each element during iteration.
      *
+     * When `$append` is `FALSE` (the default) the existing specifications are replaced by the given one.
+     * When `$append` is `TRUE` the given specification is appended to the current list.
+     *
      * @phpstan-param SpecificationInterface<contravariant T> $specification
      *
      * @phpstan-return static<T>
      */
-    public function withSpecification(SpecificationInterface $specification): static;
+    public function withSpecification(SpecificationInterface $specification, bool $append = false): static;
 
     /**
      * Remove specification.

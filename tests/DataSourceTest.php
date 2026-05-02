@@ -460,7 +460,7 @@ final class DataSourceTest extends TestCase
         $second = QueryExpression::create();
         $second = $second->andWhere($second->expr()->lowerThan('age', 38));
 
-        $filtered = $ds->withQueryExpression($first)->withQueryExpression($second);
+        $filtered = $ds->withQueryExpression($first)->withQueryExpression($second, true);
 
         self::assertSame([1, 4], $this->ids($filtered));
         self::assertCount(2, $filtered->queryExpressions());
@@ -476,7 +476,7 @@ final class DataSourceTest extends TestCase
 
         $sort = QueryExpression::create()->sortBy('age', 'asc');
 
-        $filtered = $ds->withQueryExpression($filter)->withQueryExpression($sort);
+        $filtered = $ds->withQueryExpression($filter)->withQueryExpression($sort, true);
 
         self::assertSame([1, 4, 3], $this->ids($filtered));
     }
@@ -936,7 +936,7 @@ final class DataSourceTest extends TestCase
         $second = $second->andWhere($second->expr()->lowerThan('age', 38));
 
         $branchA = $ds->withQueryExpression($first);
-        $branchB = $branchA->withQueryExpression($second);
+        $branchB = $branchA->withQueryExpression($second, true);
 
         $branchA = $branchA->withoutQueryExpression(true);
 
