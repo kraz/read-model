@@ -24,7 +24,7 @@ use function str_starts_with;
 
 use const ARRAY_FILTER_USE_KEY;
 
-/** @phpstan-template T of object|array<string, mixed> */
+/** @phpstan-template-covariant T of object|array<string, mixed> */
 trait BasicReadDataProvider
 {
     /** @phpstan-return static<T> */
