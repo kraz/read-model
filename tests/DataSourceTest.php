@@ -261,7 +261,7 @@ final class DataSourceTest extends TestCase
         $ds->withPagination(1, 0);
     }
 
-    public function testWithoutPaginationUndoesLastWithPagination(): void
+    public function testWithoutPaginationClearsPagination(): void
     {
         /** @var DataSource<PersonFixture> $ds */
         $ds      = new DataSource($this->people());
@@ -273,7 +273,21 @@ final class DataSourceTest extends TestCase
         self::assertSame([1, 2, 3], $this->ids($cleared));
     }
 
-    public function testWithoutPaginationRestoresPreviousPagination(): void
+    public function testWithoutPaginationClearsAllPaginationHistory(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->people());
+
+        $page1   = $ds->withPagination(1, 2);
+        $page2   = $page1->withPagination(2, 2);
+        $cleared = $page2->withoutPagination();
+
+        self::assertNull($cleared->paginator());
+        self::assertFalse($cleared->isPaginated());
+        self::assertSame([1, 2, 3], $this->ids($cleared));
+    }
+
+    public function testWithoutPaginationUndoRestoresPreviousPagination(): void
     {
         /** @var DataSource<PersonFixture> $ds */
         $ds = new DataSource($this->people());
@@ -283,13 +297,35 @@ final class DataSourceTest extends TestCase
 
         self::assertSame([3], $this->ids($page2));
 
-        $back = $page2->withoutPagination();
+        $back = $page2->withoutPagination(true);
 
         $backPaginator = $back->paginator();
         self::assertNotNull($backPaginator);
         self::assertSame([1, 2], $this->ids($back));
         self::assertSame(1, $backPaginator->getCurrentPage());
         self::assertSame(2, $backPaginator->getItemsPerPage());
+    }
+
+    public function testWithoutPaginationUndoOnSinglePaginationClearsPagination(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds    = new DataSource($this->people());
+        $paged = $ds->withPagination(1, 2);
+        $back  = $paged->withoutPagination(true);
+
+        self::assertNull($back->paginator());
+        self::assertFalse($back->isPaginated());
+        self::assertSame([1, 2, 3], $this->ids($back));
+    }
+
+    public function testWithoutPaginationUndoOnFreshDataSourceIsNoOp(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds   = new DataSource($this->people());
+        $back = $ds->withoutPagination(true);
+
+        self::assertNull($back->paginator());
+        self::assertSame([1, 2, 3], $this->ids($back));
     }
 
     public function testWithoutPaginationOnFreshDataSourceIsNoOp(): void
@@ -659,7 +695,7 @@ final class DataSourceTest extends TestCase
         $ds = new DataSource($this->people());
 
         $this->expectException(LogicException::class);
-        $ds->withQueryModifier(static fn (mixed $x): mixed => $x);
+        $ds->withQueryModifier(static fn (mixed $x): mixed => $x)->data();
     }
 
     public function testWithQueryModifierAppliesToInnerProviderAtIteration(): void

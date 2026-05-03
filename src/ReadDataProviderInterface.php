@@ -94,9 +94,12 @@ interface ReadDataProviderInterface extends IteratorAggregate, Countable
     /**
      * Remove the data pagination and work with the whole data set.
      *
+     * When `$undo` is `TRUE` the pagination is reverted to the state before calling the last
+     * `withPagination`. When `$undo` is `FALSE` (the default behavior) it clears the pagination completely.
+     *
      * @phpstan-return static<T>
      */
-    public function withoutPagination(): static;
+    public function withoutPagination(bool $undo = false): static;
 
     /**
      * Get list of the currently applied query expressions

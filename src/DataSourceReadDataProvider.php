@@ -108,10 +108,10 @@ trait DataSourceReadDataProvider
     }
 
     #[Override]
-    public function withoutPagination(): static
+    public function withoutPagination(bool $undo = false): static
     {
         $clone             = clone $this;
-        $clone->dataSource = $clone->dataSource()->withoutPagination();
+        $clone->dataSource = $clone->dataSource()->withoutPagination($undo);
 
         return $clone;
     }

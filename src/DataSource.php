@@ -5,23 +5,18 @@ declare(strict_types=1);
 namespace Kraz\ReadModel;
 
 use ArrayIterator;
-use InvalidArgumentException;
 use IteratorAggregate;
 use Kraz\ReadModel\Collections\ArrayCollection;
 use Kraz\ReadModel\Pagination\InMemoryPaginator;
 use Kraz\ReadModel\Pagination\PaginatorInterface;
-use Kraz\ReadModel\Query\QueryExpression;
 use Kraz\ReadModel\Query\QueryExpressionProvider;
 use Kraz\ReadModel\Query\QueryExpressionProviderInterface;
-use Kraz\ReadModel\Query\QueryRequest;
-use Kraz\ReadModel\Specification\SpecificationInterface;
 use Kraz\ReadModel\Tools\TraversableTransformer;
 use LogicException;
 use Override;
 use Traversable;
 
 use function array_filter;
-use function array_pop;
 use function array_values;
 use function count;
 use function is_array;
@@ -39,26 +34,6 @@ class DataSource implements ReadDataProviderInterface
 
     private QueryExpressionProviderInterface|null $queryExpressionProvider = null;
     private ReadModelDescriptorFactoryInterface|null $descriptorFactory    = null;
-
-    /** @phpstan-var QueryExpression[] */
-    private array $queryExpressions = [];
-    /** @phpstan-var array<int, QueryExpression[]> */
-    private array $queryExpressionsHistory = [];
-
-    /** @phpstan-var callable[] */
-    private array $queryModifiers = [];
-    /** @phpstan-var array<int, callable[]> */
-    private array $queryModifiersHistory = [];
-
-    /** @phpstan-var SpecificationInterface<contravariant T>[] */
-    private array $specifications = [];
-    /** @phpstan-var array<int, SpecificationInterface<contravariant T>[]> */
-    private array $specificationsHistory = [];
-
-    /** @phpstan-var array{int<0, max>, int<0, max>}|null */
-    private array|null $pagination = null;
-    /** @phpstan-var array<int, array{int<0, max>, int<0, max>}|null> */
-    private array $paginationHistory = [];
 
     /** @phpstan-var callable */
     private mixed $itemNormalizer;
@@ -180,154 +155,6 @@ class DataSource implements ReadDataProviderInterface
     }
 
     #[Override]
-    public function withPagination(int $page, int $itemsPerPage): static
-    {
-        if ($page <= 0) {
-            throw new InvalidArgumentException('Expected a positive integer.');
-        }
-
-        if ($itemsPerPage <= 0) {
-            throw new InvalidArgumentException('Expected a positive integer.');
-        }
-
-        /** @phpstan-var static<T> $cloned */
-        $cloned                      = clone $this;
-        $cloned->paginationHistory[] = $cloned->pagination;
-        $cloned->pagination          = [$page, $itemsPerPage];
-
-        return $cloned;
-    }
-
-    #[Override]
-    public function withoutPagination(): static
-    {
-        /** @phpstan-var static<T> $cloned */
-        $cloned             = clone $this;
-        $cloned->pagination = count($cloned->paginationHistory) > 0 ? array_pop($cloned->paginationHistory) : null;
-
-        return $cloned;
-    }
-
-    #[Override]
-    public function withQueryExpression(QueryExpression $queryExpression, bool $append = false): static
-    {
-        /** @phpstan-var static<T> $cloned */
-        $cloned                            = clone $this;
-        $cloned->queryExpressionsHistory[] = $cloned->queryExpressions;
-        $cloned->queryExpressions          = $append
-            ? [...$cloned->queryExpressions, $queryExpression]
-            : [$queryExpression];
-
-        return $cloned;
-    }
-
-    #[Override]
-    public function withoutQueryExpression(bool $undo = false): static
-    {
-        /** @phpstan-var static<T> $cloned */
-        $cloned = clone $this;
-
-        if ($undo) {
-            $cloned->queryExpressions = count($cloned->queryExpressionsHistory) > 0
-                ? array_pop($cloned->queryExpressionsHistory)
-                : [];
-        } else {
-            $cloned->queryExpressions        = [];
-            $cloned->queryExpressionsHistory = [];
-        }
-
-        return $cloned;
-    }
-
-    #[Override]
-    public function withQueryRequest(QueryRequest $queryRequest): static
-    {
-        /** @phpstan-var static<T> $cloned */
-        $cloned = $this;
-        if ($queryRequest->getQuery() !== null) {
-            $cloned = $cloned->withQueryExpression($queryRequest->getQuery());
-        }
-
-        if ($queryRequest->getPage() !== null && $queryRequest->getItemsPerPage() !== null) {
-            $cloned = $cloned->withPagination($queryRequest->getPage(), $queryRequest->getItemsPerPage());
-        }
-
-        return $cloned;
-    }
-
-    #[Override]
-    public function queryExpressions(): array
-    {
-        return $this->queryExpressions;
-    }
-
-    #[Override]
-    public function withQueryModifier(callable $modifier, bool $append = false): static
-    {
-        if (! ($this->data instanceof ReadDataProviderInterface)) {
-            throw new LogicException('Unsupported operation. The data source does not support query modifier.');
-        }
-
-        /** @phpstan-var static<T> $cloned */
-        $cloned                          = clone $this;
-        $cloned->queryModifiersHistory[] = $cloned->queryModifiers;
-        $cloned->queryModifiers          = $append
-            ? [...$cloned->queryModifiers, $modifier]
-            : [$modifier];
-
-        return $cloned;
-    }
-
-    #[Override]
-    public function withoutQueryModifier(bool $undo = false): static
-    {
-        /** @phpstan-var static<T> $cloned */
-        $cloned = clone $this;
-
-        if ($undo) {
-            $cloned->queryModifiers = count($cloned->queryModifiersHistory) > 0
-                ? array_pop($cloned->queryModifiersHistory)
-                : [];
-        } else {
-            $cloned->queryModifiers        = [];
-            $cloned->queryModifiersHistory = [];
-        }
-
-        return $cloned;
-    }
-
-    #[Override]
-    public function withSpecification(SpecificationInterface $specification, bool $append = false): static
-    {
-        /** @phpstan-var static<T> $cloned */
-        $cloned                          = clone $this;
-        $cloned->specificationsHistory[] = $cloned->specifications;
-        $cloned->specifications          = $append
-            ? [...$cloned->specifications, $specification]
-            : [$specification];
-
-        return $cloned;
-    }
-
-    #[Override]
-    public function withoutSpecification(bool $undo = false): static
-    {
-        /** @phpstan-var static<T> $cloned */
-        $cloned = clone $this;
-
-        if ($undo) {
-            $cloned->specifications = count($cloned->specificationsHistory) > 0
-                ? array_pop($cloned->specificationsHistory)
-                : [];
-        } else {
-            $cloned->specifications        = [];
-            $cloned->specificationsHistory = [];
-        }
-
-        return $cloned;
-    }
-
-    #[Override]
     public function handleRequest(object $request, array $fieldsOperator = [], array $fieldsIgnoreCase = []): static
     {
         throw new LogicException('Unsupported operation. The data source can not handle requests.');
@@ -367,6 +194,10 @@ class DataSource implements ReadDataProviderInterface
         }
 
         $allQEs = [...$specQEs, ...$this->queryExpressions];
+
+        if (! ($this->data instanceof ReadDataProviderInterface) && count($this->queryModifiers) > 0) {
+            throw new LogicException('Unsupported operation. The data source does not support query modifier.');
+        }
 
         if ($this->data instanceof ReadDataProviderInterface) {
             $provider = $this->data;
