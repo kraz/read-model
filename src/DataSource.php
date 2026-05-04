@@ -10,7 +10,6 @@ use Kraz\ReadModel\Collections\ArrayCollection;
 use Kraz\ReadModel\Pagination\InMemoryPaginator;
 use Kraz\ReadModel\Pagination\PaginatorInterface;
 use Kraz\ReadModel\Query\QueryExpressionProvider;
-use Kraz\ReadModel\Query\QueryExpressionProviderInterface;
 use Kraz\ReadModel\Tools\TraversableTransformer;
 use LogicException;
 use Override;
@@ -29,21 +28,19 @@ use function iterator_to_array;
  */
 class DataSource implements ReadDataProviderInterface
 {
-    /** @use BasicReadDataProvider<T> */
-    use BasicReadDataProvider;
-
-    private QueryExpressionProviderInterface|null $queryExpressionProvider = null;
-    private ReadModelDescriptorFactoryInterface|null $descriptorFactory    = null;
-
-    /** @phpstan-var callable */
-    private mixed $itemNormalizer;
+    /** @use ReadDataProviderComposition<T> */
+    use ReadDataProviderComposition;
 
     /** @phpstan-param ReadDataProviderInterface<T>|PaginatorInterface<T>|IteratorAggregate<array-key, T>|iterable<T>|null $data */
     public function __construct(
         private ReadDataProviderInterface|PaginatorInterface|IteratorAggregate|iterable|null $data,
         callable|null $itemNormalizer = null,
     ) {
-        $this->itemNormalizer = $itemNormalizer ?? static fn (mixed $item): mixed => $item;
+        if ($itemNormalizer === null) {
+            return;
+        }
+
+        $this->itemNormalizer = $itemNormalizer;
     }
 
     #[Override]
@@ -56,7 +53,7 @@ class DataSource implements ReadDataProviderInterface
             $iterator = new ArrayIterator($this->filteredItems());
         }
 
-        $itemNormalizer = $this->itemNormalizer;
+        $itemNormalizer = $this->itemNormalizer ?? static fn (mixed $item): mixed => $item;
         /** @phpstan-var Traversable<array-key, T> $items */
         $items = new TraversableTransformer($iterator, $itemNormalizer(...))->getIterator();
 
@@ -160,26 +157,6 @@ class DataSource implements ReadDataProviderInterface
         throw new LogicException('Unsupported operation. The data source can not handle requests.');
     }
 
-    public function getQueryExpressionProvider(): QueryExpressionProviderInterface
-    {
-        return $this->queryExpressionProvider ??= new QueryExpressionProvider($this->getDescriptorFactory());
-    }
-
-    public function setQueryExpressionProvider(QueryExpressionProviderInterface|null $queryExpressionProvider): void
-    {
-        $this->queryExpressionProvider = $queryExpressionProvider;
-    }
-
-    public function getDescriptorFactory(): ReadModelDescriptorFactoryInterface
-    {
-        return $this->descriptorFactory ??= new ReadModelDescriptorFactory();
-    }
-
-    public function setDescriptorFactory(ReadModelDescriptorFactoryInterface|null $descriptorFactory): void
-    {
-        $this->descriptorFactory = $descriptorFactory;
-    }
-
     /** @phpstan-return list<T> */
     private function filteredItems(): array
     {
@@ -230,14 +207,19 @@ class DataSource implements ReadDataProviderInterface
             if (count($items) > 0 && count($allQEs) > 0) {
                 /** @phpstan-var ArrayCollection<array-key, T> $collection */
                 $collection = new ArrayCollection($items);
-                $first      = $collection->first();
-                $descriptor = is_object($first)
-                    ? $this->getDescriptorFactory()->createReadModelDescriptorFrom($first)
-                    : null;
 
+                $descriptor = $this->readModelDescriptor;
+                if ($descriptor === null) {
+                    $first      = $collection->first();
+                    $descriptor = is_object($first)
+                        ? ($this->descriptorFactory ?? new ReadModelDescriptorFactory())->createReadModelDescriptorFrom($first)
+                        : null;
+                }
+
+                $queryExpressionProvider = $this->queryExpressionProvider ?? new QueryExpressionProvider($this->descriptorFactory ?? new ReadModelDescriptorFactory());
                 foreach ($allQEs as $queryExpression) {
                     /** @phpstan-var ArrayCollection<array-key, T> $collection */
-                    $collection = $this->getQueryExpressionProvider()->apply($collection, $queryExpression, $descriptor);
+                    $collection = $queryExpressionProvider->apply($collection, $queryExpression, $descriptor);
                 }
 
                 $items = array_values($collection->toArray());

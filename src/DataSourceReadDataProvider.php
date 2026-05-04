@@ -7,6 +7,7 @@ namespace Kraz\ReadModel;
 use Kraz\ReadModel\Pagination\PaginatorInterface;
 use Kraz\ReadModel\Query\FilterExpression;
 use Kraz\ReadModel\Query\QueryExpression;
+use Kraz\ReadModel\Query\QueryExpressionProviderInterface;
 use Kraz\ReadModel\Query\QueryRequest;
 use Kraz\ReadModel\Specification\SpecificationInterface;
 use Override;
@@ -116,7 +117,6 @@ trait DataSourceReadDataProvider
         return $clone;
     }
 
-    /** @return QueryExpression[] */
     #[Override]
     public function queryExpressions(): array
     {
@@ -178,10 +178,91 @@ trait DataSourceReadDataProvider
     }
 
     #[Override]
+    public function withReadModelDescriptor(ReadModelDescriptor $readModelDescriptor): static
+    {
+        $clone             = clone $this;
+        $clone->dataSource = $clone->dataSource()->withReadModelDescriptor($readModelDescriptor);
+
+        return $clone;
+    }
+
+    #[Override]
+    public function withoutReadModelDescriptor(bool $undo = false): static
+    {
+        $clone             = clone $this;
+        $clone->dataSource = $clone->dataSource()->withoutReadModelDescriptor($undo);
+
+        return $clone;
+    }
+
+    #[Override]
     public function withQueryRequest(QueryRequest $queryRequest): static
     {
         $clone             = clone $this;
         $clone->dataSource = $clone->dataSource()->withQueryRequest($queryRequest);
+
+        return $clone;
+    }
+
+    #[Override]
+    public function withReadModel(object|string $model): static
+    {
+        $clone             = clone $this;
+        $clone->dataSource = $clone->dataSource()->withReadModel($model);
+
+        return $clone;
+    }
+
+    #[Override]
+    public function withQueryExpressionProvider(QueryExpressionProviderInterface $queryExpressionProvider): static
+    {
+        $clone             = clone $this;
+        $clone->dataSource = $clone->dataSource()->withQueryExpressionProvider($queryExpressionProvider);
+
+        return $clone;
+    }
+
+    #[Override]
+    public function withoutQueryExpressionProvider(bool $undo = false): static
+    {
+        $clone             = clone $this;
+        $clone->dataSource = $clone->dataSource()->withoutQueryExpressionProvider($undo);
+
+        return $clone;
+    }
+
+    #[Override]
+    public function withDescriptorFactory(ReadModelDescriptorFactoryInterface $descriptorFactory): static
+    {
+        $clone             = clone $this;
+        $clone->dataSource = $clone->dataSource()->withDescriptorFactory($descriptorFactory);
+
+        return $clone;
+    }
+
+    #[Override]
+    public function withoutDescriptorFactory(bool $undo = false): static
+    {
+        $clone             = clone $this;
+        $clone->dataSource = $clone->dataSource()->withoutDescriptorFactory($undo);
+
+        return $clone;
+    }
+
+    #[Override]
+    public function withItemNormalizer(callable $itemNormalizer): static
+    {
+        $clone             = clone $this;
+        $clone->dataSource = $clone->dataSource()->withItemNormalizer($itemNormalizer);
+
+        return $clone;
+    }
+
+    #[Override]
+    public function withoutItemNormalizer(bool $undo = false): static
+    {
+        $clone             = clone $this;
+        $clone->dataSource = $clone->dataSource()->withoutItemNormalizer($undo);
 
         return $clone;
     }

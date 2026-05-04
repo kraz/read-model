@@ -11,11 +11,9 @@ use Kraz\ReadModel\Collections\ArrayCollection;
 use Kraz\ReadModel\DataSource;
 use Kraz\ReadModel\Pagination\InMemoryPaginator;
 use Kraz\ReadModel\Query\QueryExpression;
-use Kraz\ReadModel\Query\QueryExpressionProvider;
 use Kraz\ReadModel\Query\QueryExpressionProviderInterface;
 use Kraz\ReadModel\Query\QueryRequest;
 use Kraz\ReadModel\ReadDataProviderInterface;
-use Kraz\ReadModel\ReadModelDescriptorFactory;
 use Kraz\ReadModel\ReadModelDescriptorFactoryInterface;
 use Kraz\ReadModel\ReadResponse;
 use Kraz\ReadModel\Tests\Query\Fixtures\PersonFixture;
@@ -885,7 +883,7 @@ final class DataSourceTest extends TestCase
 
         /** @var DataSource<PersonFixture> $ds */
         $ds = new DataSource($this->people());
-        $ds->setQueryExpressionProvider($passthrough);
+        $ds = $ds->withQueryExpressionProvider($passthrough);
 
         $qry      = QueryExpression::create()->withValues([1, 3]);
         $filtered = $ds->withQueryExpression($qry);
@@ -897,51 +895,53 @@ final class DataSourceTest extends TestCase
     }
 
     // ------------------------------------------------------------------
-    // Getters / setters
+    // Query expression provider / descriptor factory
     // ------------------------------------------------------------------
 
-    public function testGetQueryExpressionProviderLazyDefault(): void
-    {
-        /** @var DataSource<PersonFixture> $ds */
-        $ds = new DataSource(null);
-
-        $provider = $ds->getQueryExpressionProvider();
-
-        self::assertInstanceOf(QueryExpressionProvider::class, $provider);
-        self::assertSame($provider, $ds->getQueryExpressionProvider());
-    }
-
-    public function testSetQueryExpressionProviderOverridesDefault(): void
+    public function testWithQueryExpressionProviderReturnsNewInstance(): void
     {
         $custom = $this->createStub(QueryExpressionProviderInterface::class);
 
         /** @var DataSource<PersonFixture> $ds */
         $ds = new DataSource(null);
-        $ds->setQueryExpressionProvider($custom);
 
-        self::assertSame($custom, $ds->getQueryExpressionProvider());
+        self::assertNotSame($ds, $ds->withQueryExpressionProvider($custom));
     }
 
-    public function testGetDescriptorFactoryLazyDefault(): void
+    public function testWithQueryExpressionProviderIsUsedWhenFiltering(): void
     {
+        $custom = $this->createMock(QueryExpressionProviderInterface::class);
+        $custom->expects(self::once())->method('apply')->willReturnArgument(0);
+
         /** @var DataSource<PersonFixture> $ds */
-        $ds = new DataSource(null);
+        $ds  = new DataSource($this->people());
+        $ds  = $ds->withQueryExpressionProvider($custom);
+        $qry = QueryExpression::create()->withValues([1, 3]);
 
-        $factory = $ds->getDescriptorFactory();
-
-        self::assertInstanceOf(ReadModelDescriptorFactory::class, $factory);
-        self::assertSame($factory, $ds->getDescriptorFactory());
+        $ds->withQueryExpression($qry)->getResult();
     }
 
-    public function testSetDescriptorFactoryOverridesDefault(): void
+    public function testWithDescriptorFactoryReturnsNewInstance(): void
     {
         $custom = $this->createStub(ReadModelDescriptorFactoryInterface::class);
 
         /** @var DataSource<PersonFixture> $ds */
         $ds = new DataSource(null);
-        $ds->setDescriptorFactory($custom);
 
-        self::assertSame($custom, $ds->getDescriptorFactory());
+        self::assertNotSame($ds, $ds->withDescriptorFactory($custom));
+    }
+
+    public function testWithoutQueryExpressionProviderUndoRestoresPreviousProvider(): void
+    {
+        $custom = $this->createStub(QueryExpressionProviderInterface::class);
+
+        /** @var DataSource<PersonFixture> $ds */
+        $ds    = new DataSource(null);
+        $withP = $ds->withQueryExpressionProvider($custom);
+        $back  = $withP->withoutQueryExpressionProvider(true);
+
+        self::assertNotSame($ds, $withP);
+        self::assertNotSame($withP, $back);
     }
 
     // ------------------------------------------------------------------
@@ -953,11 +953,20 @@ final class DataSourceTest extends TestCase
         /** @var DataSource<PersonFixture> $ds */
         $ds = new DataSource($this->people());
 
+        $stubProvider = $this->createStub(QueryExpressionProviderInterface::class);
+        $stubFactory  = $this->createStub(ReadModelDescriptorFactoryInterface::class);
+
         self::assertNotSame($ds, $ds->withPagination(1, 1));
         self::assertNotSame($ds, $ds->withoutPagination());
         self::assertNotSame($ds, $ds->withQueryExpression(QueryExpression::create()));
         self::assertNotSame($ds, $ds->withoutQueryExpression());
         self::assertNotSame($ds, $ds->withoutQueryModifier());
+        self::assertNotSame($ds, $ds->withQueryExpressionProvider($stubProvider));
+        self::assertNotSame($ds, $ds->withoutQueryExpressionProvider());
+        self::assertNotSame($ds, $ds->withDescriptorFactory($stubFactory));
+        self::assertNotSame($ds, $ds->withoutDescriptorFactory());
+        self::assertNotSame($ds, $ds->withItemNormalizer(static fn (mixed $item): mixed => $item));
+        self::assertNotSame($ds, $ds->withoutItemNormalizer());
     }
 
     public function testIndependentClonesDoNotShareHistory(): void

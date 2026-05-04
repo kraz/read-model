@@ -33,7 +33,7 @@ use function substr;
 /**
  * @phpstan-import-type FilterCompositeArrayItems from FilterExpression
  * @phpstan-type QueryExpressionHelperOptions = array{
- *     root_identifier?: string,
+ *     root_identifier?: string|string[],
  *     root_alias?: string|string[],
  *     read_model_descriptor?: ReadModelDescriptor|string|null,
  *     field_map?: array<string, string>,

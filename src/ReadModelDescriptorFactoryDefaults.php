@@ -6,7 +6,7 @@ namespace Kraz\ReadModel;
 
 use ReflectionClass;
 
-trait BasicReadModelDescriptorFactory
+trait ReadModelDescriptorFactoryDefaults
 {
     /** @phpstan-var array<string, ReadModelDescriptor> */
     private array $readModelDescriptors = [];

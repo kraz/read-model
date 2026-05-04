@@ -13,6 +13,24 @@ interface QueryExpressionProviderInterface
     public const int INCLUDE_DATA_SORT   = 2;
     public const int INCLUDE_DATA_VALUES = 4;
 
+    /** @phpstan-param array<string, string> $fieldMapping */
+    public function setFieldMapping(array $fieldMapping): self;
+
+    /** @phpstan-return array<string, string> */
+    public function getFieldMapping(): array;
+
+    /** @phpstan-param string[]|string $rootAlias */
+    public function setRootAlias(array|string $rootAlias): self;
+
+    /** @phpstan-return string[]|string */
+    public function getRootAlias(): array|string;
+
+    /** @phpstan-param string[]|string $rootIdentifier */
+    public function setRootIdentifier(array|string $rootIdentifier): self;
+
+    /** @phpstan-return string[]|string */
+    public function getRootIdentifier(): array|string;
+
     /**
      * @phpstan-param ExpectedType $data
      * @phpstan-param array<string, mixed> $options

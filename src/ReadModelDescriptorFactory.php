@@ -13,7 +13,7 @@ use function is_string;
 
 class ReadModelDescriptorFactory implements ReadModelDescriptorFactoryInterface
 {
-    use BasicReadModelDescriptorFactory;
+    use ReadModelDescriptorFactoryDefaults;
 
     #[Override]
     public function createReadModelDescriptorFrom(object|string $model): ReadModelDescriptor
