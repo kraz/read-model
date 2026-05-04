@@ -6,7 +6,6 @@ namespace Kraz\ReadModel;
 
 use Kraz\ReadModel\Query\FilterExpression;
 use Kraz\ReadModel\Query\QueryExpression;
-use Kraz\ReadModel\Query\QueryExpressionProvider;
 use Kraz\ReadModel\Query\QueryExpressionProviderInterface;
 use Kraz\ReadModel\Query\SortExpression;
 use Kraz\ReadModel\Specification\SpecificationInterface;
@@ -117,17 +116,17 @@ trait ReadDataProviderBuilder
         $queryExpressionProvider = $this->queryExpressionProvider !== null ? clone $this->queryExpressionProvider : null;
 
         if ($this->rootAlias !== null) {
-            $queryExpressionProvider ??= $this->createQueryExpressionProvider();
+            $queryExpressionProvider ??= $this->getOrCreateQueryExpressionProvider();
             $queryExpressionProvider->setRootAlias($this->rootAlias);
         }
 
         if ($this->rootIdentifier !== null) {
-            $queryExpressionProvider ??= $this->createQueryExpressionProvider();
+            $queryExpressionProvider ??= $this->getOrCreateQueryExpressionProvider();
             $queryExpressionProvider->setRootIdentifier($this->rootIdentifier);
         }
 
         if ($this->fieldMapping !== null) {
-            $queryExpressionProvider ??= $this->createQueryExpressionProvider();
+            $queryExpressionProvider ??= $this->getOrCreateQueryExpressionProvider();
             $queryExpressionProvider->setFieldMapping($this->fieldMapping);
         }
 
@@ -169,10 +168,5 @@ trait ReadDataProviderBuilder
 
         /** @phpstan-var J $dataProvider */
         return $dataProvider;
-    }
-
-    private function createQueryExpressionProvider(): QueryExpressionProviderInterface
-    {
-        return clone ($this->queryExpressionProvider ?? new QueryExpressionProvider($this->descriptorFactory ?? new ReadModelDescriptorFactory()));
     }
 }

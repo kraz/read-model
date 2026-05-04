@@ -11,7 +11,7 @@ use LogicException;
 use Override;
 
 /**
- * @phpstan-template-covariant T of object|array<string, mixed>
+ * @phpstan-template-covariant T of object|array<string, mixed> = array<string, mixed>
  * @implements ReadDataProviderCompositionInterface<T>
  * @implements ReadDataProviderBuilderInterface<T>
  */
@@ -27,7 +27,7 @@ class DataSourceBuilder implements ReadDataProviderCompositionInterface, ReadDat
      *
      * @phpstan-return static<J>
      *
-     * @phpstan-template J of object|array<string, mixed>
+     * @phpstan-template J of object|array<string, mixed> = array<string, mixed>
      */
     public function withData(ReadDataProviderInterface|PaginatorInterface|IteratorAggregate|iterable|null $data): static
     {
@@ -43,7 +43,7 @@ class DataSourceBuilder implements ReadDataProviderCompositionInterface, ReadDat
      *
      * @return ($data is null ? DataSource<object|array<string, mixed>> : DataSource<J>)
      *
-     * @phpstan-template J of object|array<string, mixed>
+     * @phpstan-template J of object|array<string, mixed> = array<string, mixed>
      */
     public function create(ReadDataProviderInterface|PaginatorInterface|IteratorAggregate|iterable|null $data = null): DataSource
     {

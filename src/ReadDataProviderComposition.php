@@ -7,6 +7,7 @@ namespace Kraz\ReadModel;
 use InvalidArgumentException;
 use Kraz\ReadModel\Query\FilterExpression;
 use Kraz\ReadModel\Query\QueryExpression;
+use Kraz\ReadModel\Query\QueryExpressionProvider;
 use Kraz\ReadModel\Query\QueryExpressionProviderInterface;
 use Kraz\ReadModel\Query\QueryRequest;
 use Kraz\ReadModel\Specification\SpecificationInterface;
@@ -64,11 +65,13 @@ trait ReadDataProviderComposition
     /** @phpstan-var array<int, ReadModelDescriptor|null> */
     private array $readModelDescriptorHistory = [];
 
-    private QueryExpressionProviderInterface|null $queryExpressionProvider = null;
+    private QueryExpressionProviderInterface|null $queryExpressionProviderDefault = null;
+    private QueryExpressionProviderInterface|null $queryExpressionProvider        = null;
     /** @phpstan-var array<int, QueryExpressionProviderInterface|null> */
     private array $queryExpressionProviderHistory = [];
 
-    private ReadModelDescriptorFactoryInterface|null $descriptorFactory = null;
+    private ReadModelDescriptorFactoryInterface|null $descriptorFactoryDefault = null;
+    private ReadModelDescriptorFactoryInterface|null $descriptorFactory        = null;
     /** @phpstan-var array<int, ReadModelDescriptorFactoryInterface|null> */
     private array $descriptorFactoryHistory = [];
 
@@ -76,6 +79,26 @@ trait ReadDataProviderComposition
     private mixed $itemNormalizer = null;
     /** @phpstan-var array<int, callable|null> */
     private array $itemNormalizerHistory = [];
+
+    protected function createDefaultDescriptorFactory(): ReadModelDescriptorFactoryInterface
+    {
+        return new ReadModelDescriptorFactory();
+    }
+
+    protected function createDefaultQueryExpressionProvider(ReadModelDescriptorFactoryInterface $factory): QueryExpressionProviderInterface
+    {
+        return new QueryExpressionProvider($factory);
+    }
+
+    private function getOrCreateDescriptorFactory(): ReadModelDescriptorFactoryInterface
+    {
+        return $this->descriptorFactory ?? ($this->descriptorFactoryDefault ??= $this->createDefaultDescriptorFactory());
+    }
+
+    private function getOrCreateQueryExpressionProvider(): QueryExpressionProviderInterface
+    {
+        return $this->queryExpressionProvider ?? ($this->queryExpressionProviderDefault ??= $this->createDefaultQueryExpressionProvider($this->getOrCreateDescriptorFactory()));
+    }
 
     #[Override]
     final public function qry(): QueryExpression
@@ -268,7 +291,7 @@ trait ReadDataProviderComposition
     #[Override]
     public function withReadModel(object|string $model): static
     {
-        return $this->withReadModelDescriptor(($this->descriptorFactory ?? new ReadModelDescriptorFactory())->createReadModelDescriptorFrom($model));
+        return $this->withReadModelDescriptor($this->getOrCreateDescriptorFactory()->createReadModelDescriptorFrom($model));
     }
 
     #[Override]

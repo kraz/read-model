@@ -9,7 +9,6 @@ use IteratorAggregate;
 use Kraz\ReadModel\Collections\ArrayCollection;
 use Kraz\ReadModel\Pagination\InMemoryPaginator;
 use Kraz\ReadModel\Pagination\PaginatorInterface;
-use Kraz\ReadModel\Query\QueryExpressionProvider;
 use Kraz\ReadModel\Tools\TraversableTransformer;
 use LogicException;
 use Override;
@@ -212,11 +211,11 @@ class DataSource implements ReadDataProviderInterface
                 if ($descriptor === null) {
                     $first      = $collection->first();
                     $descriptor = is_object($first)
-                        ? ($this->descriptorFactory ?? new ReadModelDescriptorFactory())->createReadModelDescriptorFrom($first)
+                        ? $this->getOrCreateDescriptorFactory()->createReadModelDescriptorFrom($first)
                         : null;
                 }
 
-                $queryExpressionProvider = $this->queryExpressionProvider ?? new QueryExpressionProvider($this->descriptorFactory ?? new ReadModelDescriptorFactory());
+                $queryExpressionProvider = $this->getOrCreateQueryExpressionProvider();
                 foreach ($allQEs as $queryExpression) {
                     /** @phpstan-var ArrayCollection<array-key, T> $collection */
                     $collection = $queryExpressionProvider->apply($collection, $queryExpression, $descriptor);
