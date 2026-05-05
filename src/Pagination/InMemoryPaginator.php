@@ -41,6 +41,7 @@ final readonly class InMemoryPaginator implements PaginatorInterface
         private int $totalItems,
         private int $currentPage,
         private int $itemsPerPage,
+        int|null $offset = null,
     ) {
         if ($totalItems < 0) {
             throw new InvalidArgumentException('Expected a value greater than or equal to 0.');
@@ -54,7 +55,11 @@ final readonly class InMemoryPaginator implements PaginatorInterface
             throw new InvalidArgumentException('Expected a positive integer.');
         }
 
-        $this->offset = ($currentPage - 1) * $itemsPerPage;
+        if ($offset !== null && $offset < 0) {
+            throw new InvalidArgumentException('Expected a positive integer.');
+        }
+
+        $this->offset = $offset ?? ($currentPage - 1) * $itemsPerPage;
         $this->limit  = $itemsPerPage;
 
         /** @phpstan-var int<0, max> $lastPage */
