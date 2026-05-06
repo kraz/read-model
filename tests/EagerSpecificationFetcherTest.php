@@ -5,14 +5,14 @@ declare(strict_types=1);
 namespace Kraz\ReadModel\Tests;
 
 use Kraz\ReadModel\DataSource;
-use Kraz\ReadModel\EagerSpecificationFetcher;
+use Kraz\ReadModel\ReadDataProviderAccess;
 use Kraz\ReadModel\Tests\Query\Fixtures\PersonFixture;
 use Kraz\ReadModel\Tests\Specification\Fixtures\AgeAboveSpecification;
 use Kraz\ReadModel\Tests\Specification\Fixtures\NameEqualsSpecification;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
-#[CoversClass(EagerSpecificationFetcher::class)]
+#[CoversClass(ReadDataProviderAccess::class)]
 final class EagerSpecificationFetcherTest extends TestCase
 {
     /**
@@ -45,9 +45,7 @@ final class EagerSpecificationFetcherTest extends TestCase
             new PersonFixture(id: 5, name: 'Eve', age: 22),
         ]);
 
-        /** @var EagerSpecificationFetcher<PersonFixture> $fetcher */
-        $fetcher = new EagerSpecificationFetcher();
-        $result  = $fetcher->fetch($provider, [new AgeAboveSpecification(28)], limit: 2);
+        $result = $provider->specificationsIterator([new AgeAboveSpecification(28)], limit: 2);
 
         self::assertSame([1, 3], $this->ids($result));
     }
@@ -61,9 +59,7 @@ final class EagerSpecificationFetcherTest extends TestCase
             new PersonFixture(id: 3, name: 'Carol', age: 40),
         ]);
 
-        /** @var EagerSpecificationFetcher<PersonFixture> $fetcher */
-        $fetcher = new EagerSpecificationFetcher();
-        $result  = $fetcher->fetch($provider, [new AgeAboveSpecification(28)], limit: 10);
+        $result = $provider->specificationsIterator([new AgeAboveSpecification(28)], limit: 10);
 
         self::assertSame([1, 3], $this->ids($result));
     }
@@ -73,11 +69,9 @@ final class EagerSpecificationFetcherTest extends TestCase
         /** @var DataSource<PersonFixture> $provider */
         $provider = new DataSource([]);
 
-        /** @var EagerSpecificationFetcher<PersonFixture> $fetcher */
-        $fetcher = new EagerSpecificationFetcher();
-        $result  = $fetcher->fetch($provider, [new AgeAboveSpecification(28)], limit: 5);
+        $result = $provider->specificationsIterator([new AgeAboveSpecification(28)], limit: 5);
 
-        self::assertSame([], $result);
+        self::assertSame([], $this->ids($result));
     }
 
     public function testFetchReturnsEmptyArrayWhenNoItemsSatisfySpec(): void
@@ -88,11 +82,9 @@ final class EagerSpecificationFetcherTest extends TestCase
             new PersonFixture(id: 2, name: 'Bob', age: 15),
         ]);
 
-        /** @var EagerSpecificationFetcher<PersonFixture> $fetcher */
-        $fetcher = new EagerSpecificationFetcher();
-        $result  = $fetcher->fetch($provider, [new AgeAboveSpecification(28)], limit: 5);
+        $result = $provider->specificationsIterator([new AgeAboveSpecification(28)], limit: 5);
 
-        self::assertSame([], $result);
+        self::assertSame([], $this->ids($result));
     }
 
     // ------------------------------------------------------------------
@@ -110,11 +102,8 @@ final class EagerSpecificationFetcherTest extends TestCase
             new PersonFixture(id: 5, name: 'Eve', age: 22),
         ]);
 
-        /** @var EagerSpecificationFetcher<PersonFixture> $fetcher */
-        $fetcher = new EagerSpecificationFetcher();
-
         // Matching (age > 28): Alice(1), Carol(3), Dan(4) — skip first 1, collect up to 2
-        $result = $fetcher->fetch($provider, [new AgeAboveSpecification(28)], limit: 2, offset: 1);
+        $result = $provider->specificationsIterator([new AgeAboveSpecification(28)], limit: 2, offset: 1);
 
         self::assertSame([3, 4], $this->ids($result));
     }
@@ -127,13 +116,10 @@ final class EagerSpecificationFetcherTest extends TestCase
             new PersonFixture(id: 2, name: 'Bob', age: 25),
         ]);
 
-        /** @var EagerSpecificationFetcher<PersonFixture> $fetcher */
-        $fetcher = new EagerSpecificationFetcher();
-
         // Only 1 item matches (Alice), but offset=2 skips everything
-        $result = $fetcher->fetch($provider, [new AgeAboveSpecification(28)], limit: 5, offset: 2);
+        $result = $provider->specificationsIterator([new AgeAboveSpecification(28)], limit: 5, offset: 2);
 
-        self::assertSame([], $result);
+        self::assertSame([], $this->ids($result));
     }
 
     public function testFetchWithZeroOffsetBehavesLikeNoOffset(): void
@@ -145,13 +131,8 @@ final class EagerSpecificationFetcherTest extends TestCase
             new PersonFixture(id: 3, name: 'Carol', age: 40),
         ]);
 
-        /** @var EagerSpecificationFetcher<PersonFixture> $fetcherNoOffset */
-        $fetcherNoOffset = new EagerSpecificationFetcher();
-        /** @var EagerSpecificationFetcher<PersonFixture> $fetcherZeroOffset */
-        $fetcherZeroOffset = new EagerSpecificationFetcher();
-
-        $withoutOffset = $fetcherNoOffset->fetch($provider, [new AgeAboveSpecification(28)], limit: 5);
-        $withZero      = $fetcherZeroOffset->fetch($provider, [new AgeAboveSpecification(28)], limit: 5, offset: 0);
+        $withoutOffset = $provider->specificationsIterator([new AgeAboveSpecification(28)], limit: 5);
+        $withZero      = $provider->specificationsIterator([new AgeAboveSpecification(28)], limit: 5, offset: 0);
 
         self::assertSame($this->ids($withoutOffset), $this->ids($withZero));
     }
@@ -170,33 +151,13 @@ final class EagerSpecificationFetcherTest extends TestCase
             new PersonFixture(id: 4, name: 'Alice', age: 35),
         ]);
 
-        /** @var EagerSpecificationFetcher<PersonFixture> $fetcher */
-        $fetcher = new EagerSpecificationFetcher();
-
         // Must be age > 28 AND name = 'Alice' → only ids 1 and 4
-        $result = $fetcher->fetch(
-            $provider,
+        $result = $provider->specificationsIterator(
             [new AgeAboveSpecification(28), new NameEqualsSpecification('Alice')],
             limit: 5,
         );
 
         self::assertSame([1, 4], $this->ids($result));
-    }
-
-    public function testFetchWithNoSpecificationsReturnsItemsUpToLimit(): void
-    {
-        /** @var DataSource<PersonFixture> $provider */
-        $provider = new DataSource([
-            new PersonFixture(id: 1, name: 'Alice', age: 30),
-            new PersonFixture(id: 2, name: 'Bob', age: 25),
-            new PersonFixture(id: 3, name: 'Carol', age: 40),
-        ]);
-
-        /** @var EagerSpecificationFetcher<PersonFixture> $fetcher */
-        $fetcher = new EagerSpecificationFetcher();
-        $result  = $fetcher->fetch($provider, [], limit: 2);
-
-        self::assertSame([1, 2], $this->ids($result));
     }
 
     // ------------------------------------------------------------------
@@ -225,9 +186,7 @@ final class EagerSpecificationFetcherTest extends TestCase
             new PersonFixture(id: 9, age: 10),
         ]);
 
-        /** @var EagerSpecificationFetcher<PersonFixture> $fetcher */
-        $fetcher = new EagerSpecificationFetcher();
-        $result  = $fetcher->fetch($provider, [new AgeAboveSpecification(25)], limit: 2, offset: 1);
+        $result = $provider->specificationsIterator([new AgeAboveSpecification(25)], limit: 2, offset: 1);
 
         self::assertSame([4, 6], $this->ids($result));
     }
@@ -244,9 +203,7 @@ final class EagerSpecificationFetcherTest extends TestCase
         /** @var DataSource<PersonFixture> $provider */
         $provider = new DataSource($people);
 
-        /** @var EagerSpecificationFetcher<PersonFixture> $fetcher */
-        $fetcher = new EagerSpecificationFetcher();
-        $result  = $fetcher->fetch($provider, [new AgeAboveSpecification(25)], limit: 3);
+        $result = $provider->specificationsIterator([new AgeAboveSpecification(25)], limit: 3);
 
         self::assertSame([1, 2, 3], $this->ids($result));
     }

@@ -7,6 +7,7 @@ namespace Kraz\ReadModel;
 use Countable;
 use IteratorAggregate;
 use Kraz\ReadModel\Pagination\PaginatorInterface;
+use Kraz\ReadModel\Specification\SpecificationInterface;
 use Traversable;
 
 /**
@@ -62,4 +63,17 @@ interface ReadDataProviderInterface extends ReadDataProviderCompositionInterface
      * @return Traversable<array-key, T>
      */
     public function getIterator(): Traversable;
+
+    /**
+     * Fetches items in batches using limit/offset, filters them through specifications
+     * in memory, and stops as soon as the requested number of matching items is collected.
+     *
+     * @phpstan-param non-empty-array<SpecificationInterface<contravariant T>> $specifications
+     * @phpstan-param int<0, max>|null                                         $limit
+     * @phpstan-param int<0, max>                                              $offset
+     * @phpstan-param int<0, max>|null                                         $batchSize
+     *
+     * @return Traversable<array-key, T>
+     */
+    public function specificationsIterator(array $specifications, int|null $limit = null, int $offset = 0, int|null $batchSize = null): Traversable;
 }

@@ -9,6 +9,7 @@ use IteratorAggregate;
 use Kraz\ReadModel\Collections\ArrayCollection;
 use Kraz\ReadModel\Pagination\InMemoryPaginator;
 use Kraz\ReadModel\Pagination\PaginatorInterface;
+use Kraz\ReadModel\Specification\SpecificationInterface;
 use Kraz\ReadModel\Tools\TraversableTransformer;
 use LogicException;
 use Override;
@@ -30,6 +31,8 @@ class DataSource implements ReadDataProviderInterface
 {
     /** @use ReadDataProviderComposition<T> */
     use ReadDataProviderComposition;
+    /** @use ReadDataProviderAccess<T> */
+    use ReadDataProviderAccess;
 
     /** @phpstan-param ReadDataProviderInterface<T>|PaginatorInterface<T>|IteratorAggregate<array-key, T>|iterable<T>|null $data */
     public function __construct(
@@ -222,11 +225,12 @@ class DataSource implements ReadDataProviderInterface
                 $limit                      = $this->limit;
                 [$limitValue, $offsetValue] = $limit;
 
-                /** @phpstan-var EagerSpecificationFetcher<T> $fetcher */
-                $fetcher = new EagerSpecificationFetcher();
+                /** @phpstan-var non-empty-array<array-key, SpecificationInterface<object|array<string, mixed>>> $specs */
+                $specs = $this->specifications;
+                /** @phpstan-var list<T> $items */
+                $items = iterator_to_array($provider->specificationsIterator($specs, $limitValue, $offsetValue ?? 0));
 
-                /** @phpstan-var ReadDataProviderInterface<T> $provider */
-                return $fetcher->fetch($provider, $this->specifications, $limitValue, $offsetValue ?? 0);
+                return $items;
             }
 
             /** @phpstan-var array<array-key, T> $items */

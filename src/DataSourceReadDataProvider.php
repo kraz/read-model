@@ -16,6 +16,9 @@ use Traversable;
 /** @phpstan-template-covariant T of object|array<string, mixed> */
 trait DataSourceReadDataProvider
 {
+    /** @use ReadDataProviderAccess<T> */
+    use ReadDataProviderAccess;
+
     /** @phpstan-var ReadDataProviderInterface<T>|null */
     private ReadDataProviderInterface|null $dataSource = null;
 
