@@ -37,6 +37,16 @@ trait ReadDataProviderAccess
             throw new InvalidArgumentException('The batch size can not be lower than 1');
         }
 
+        $base = $this;
+        foreach ($specifications as $specification) {
+            $qe = $specification->getQueryExpression();
+            if ($qe === null || $qe->isEmpty()) {
+                continue;
+            }
+
+            $base = $base->withQueryExpression($qe, true);
+        }
+
         $batchSize ??= max(1, ($limit ?? 0) + $offset);
         $collected   = 0;
         $skipped     = 0;
@@ -44,7 +54,7 @@ trait ReadDataProviderAccess
 
         while (true) {
             /** @phpstan-var ReadDataProviderInterface<T> $batchProvider */
-            $batchProvider = $this->withLimit($batchSize, $batchOffset);
+            $batchProvider = $base->withLimit($batchSize, $batchOffset);
             $count         = 0;
 
             foreach ($batchProvider->getIterator() as $item) {

@@ -216,11 +216,11 @@ class DataSource implements ReadDataProviderInterface
                 $provider = $provider->withQueryModifier($modifier, true);
             }
 
-            foreach ($allQEs as $qe) {
-                $provider = $provider->withQueryExpression($qe, true);
-            }
-
             if (count($this->specifications) > 0 && $this->limit !== null) {
+                foreach ($this->queryExpressions as $qe) {
+                    $provider = $provider->withQueryExpression($qe, true);
+                }
+
                 /** @phpstan-var array{int<0, max>, int<0, max>|null} $limit */
                 $limit                      = $this->limit;
                 [$limitValue, $offsetValue] = $limit;
@@ -231,6 +231,10 @@ class DataSource implements ReadDataProviderInterface
                 $items = iterator_to_array($provider->specificationsIterator($specs, $limitValue, $offsetValue ?? 0));
 
                 return $items;
+            }
+
+            foreach ($allQEs as $qe) {
+                $provider = $provider->withQueryExpression($qe, true);
             }
 
             /** @phpstan-var array<array-key, T> $items */
