@@ -217,6 +217,18 @@ class DataSource implements ReadDataProviderInterface
                 $provider = $provider->withQueryExpression($qe, true);
             }
 
+            if (count($this->specifications) > 0 && $this->limit !== null) {
+                /** @phpstan-var array{int<0, max>, int<0, max>|null} $limit */
+                $limit                      = $this->limit;
+                [$limitValue, $offsetValue] = $limit;
+
+                /** @phpstan-var EagerSpecificationFetcher<T> $fetcher */
+                $fetcher = new EagerSpecificationFetcher();
+
+                /** @phpstan-var ReadDataProviderInterface<T> $provider */
+                return $fetcher->fetch($provider, $this->specifications, $limitValue, $offsetValue ?? 0);
+            }
+
             /** @phpstan-var array<array-key, T> $items */
             $items = $provider->data();
         } elseif ($this->data === null) {
