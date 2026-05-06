@@ -145,6 +145,11 @@ trait ReadDataProviderBuilder
             $dataProvider          = $dataProvider->withPagination($page, $itemsPerPage);
         }
 
+        if ($this->limit !== null) {
+            [$limitValue, $offsetValue] = $this->limit;
+            $dataProvider               = $dataProvider->withLimit($limitValue, $offsetValue);
+        }
+
         /** @phpstan-var SpecificationInterface<object|array<string, mixed>> $specification */
         foreach ($this->specifications as $specification) {
             $dataProvider = $dataProvider->withSpecification($specification, true);

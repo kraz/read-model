@@ -181,6 +181,8 @@ final class DataSourceBuilderTest extends TestCase
         self::assertNotSame($builder, $builder->withoutSpecification());
         self::assertNotSame($builder, $builder->withPagination(1, 10));
         self::assertNotSame($builder, $builder->withoutPagination());
+        self::assertNotSame($builder, $builder->withLimit(5));
+        self::assertNotSame($builder, $builder->withoutLimit());
         self::assertNotSame($builder, $builder->withQueryRequest(QueryRequest::create()));
         self::assertNotSame($builder, $builder->withItemNormalizer(static fn (mixed $item): mixed => $item));
         self::assertNotSame($builder, $builder->withoutItemNormalizer());

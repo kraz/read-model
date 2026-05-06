@@ -15,6 +15,7 @@ use Override;
 use Traversable;
 
 use function array_filter;
+use function array_slice;
 use function array_values;
 use function count;
 use function is_array;
@@ -45,7 +46,14 @@ class DataSource implements ReadDataProviderInterface
     #[Override]
     public function getIterator(): Traversable
     {
-        $paginator = $this->paginator();
+        $hasSpecs = count($this->specifications) > 0;
+
+        if ($hasSpecs && $this->pagination !== null) {
+            throw new LogicException('Cannot use pagination when specifications are set.');
+        }
+
+        $paginator = $hasSpecs ? null : $this->paginator();
+
         if ($paginator !== null) {
             $iterator = $paginator->getIterator();
         } else {
@@ -62,18 +70,26 @@ class DataSource implements ReadDataProviderInterface
     #[Override]
     public function isPaginated(): bool
     {
+        if (count($this->specifications) > 0) {
+            return false;
+        }
+
         return $this->paginator() !== null;
     }
 
     #[Override]
     public function isEmpty(): bool
     {
+        $this->assertNoSpecifications();
+
         return $this->totalCount() === 0;
     }
 
     #[Override]
     public function count(): int
     {
+        $this->assertNoSpecifications();
+
         $paginator = $this->paginator();
         if ($paginator !== null) {
             return $paginator->count();
@@ -85,6 +101,8 @@ class DataSource implements ReadDataProviderInterface
     #[Override]
     public function totalCount(): int
     {
+        $this->assertNoSpecifications();
+
         $paginator = $this->paginator();
         if ($paginator !== null) {
             return $paginator->getTotalItems();
@@ -102,6 +120,8 @@ class DataSource implements ReadDataProviderInterface
     #[Override]
     public function getResult(): array|ReadResponse
     {
+        $this->assertNoSpecifications();
+
         if ($this->isValue()) {
             return $this->data();
         }
@@ -116,9 +136,12 @@ class DataSource implements ReadDataProviderInterface
         return $result;
     }
 
+    /** @phpstan-return PaginatorInterface<T>|null */
     #[Override]
     public function paginator(): PaginatorInterface|null
     {
+        $this->assertNoSpecifications();
+
         if ($this->pagination !== null) {
             $items                 = $this->filteredItems();
             [$page, $itemsPerPage] = $this->pagination;
@@ -129,7 +152,7 @@ class DataSource implements ReadDataProviderInterface
             return $paginator;
         }
 
-        if (count($this->queryExpressions) > 0 || count($this->queryModifiers) > 0 || count($this->specifications) > 0) {
+        if (count($this->queryExpressions) > 0 || count($this->queryModifiers) > 0) {
             return null;
         }
 
@@ -148,6 +171,13 @@ class DataSource implements ReadDataProviderInterface
         }
 
         return null;
+    }
+
+    private function assertNoSpecifications(): void
+    {
+        if (count($this->specifications) > 0) {
+            throw new LogicException('Cannot use this method when specifications are set. Use getIterator() or data() instead.');
+        }
     }
 
     #[Override]
@@ -241,6 +271,12 @@ class DataSource implements ReadDataProviderInterface
 
         /** @phpstan-var list<T> $values */
         $values = array_values($items);
+
+        if ($this->limit !== null) {
+            [$limitValue, $offsetValue] = $this->limit;
+            /** @phpstan-var list<T> $values */
+            $values = array_values(array_slice($values, $offsetValue ?? 0, $limitValue));
+        }
 
         return $values;
     }

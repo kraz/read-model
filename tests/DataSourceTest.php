@@ -958,6 +958,8 @@ final class DataSourceTest extends TestCase
 
         self::assertNotSame($ds, $ds->withPagination(1, 1));
         self::assertNotSame($ds, $ds->withoutPagination());
+        self::assertNotSame($ds, $ds->withLimit(5));
+        self::assertNotSame($ds, $ds->withoutLimit());
         self::assertNotSame($ds, $ds->withQueryExpression(QueryExpression::create()));
         self::assertNotSame($ds, $ds->withoutQueryExpression());
         self::assertNotSame($ds, $ds->withoutQueryModifier());
@@ -968,6 +970,122 @@ final class DataSourceTest extends TestCase
         self::assertNotSame($ds, $ds->withItemNormalizer(static fn (mixed $item): mixed => $item));
         self::assertNotSame($ds, $ds->withoutItemNormalizer());
     }
+
+    // ------------------------------------------------------------------
+    // Limit / offset
+    // ------------------------------------------------------------------
+
+    public function testWithLimitRestrictsResultCount(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->peopleArray());
+
+        self::assertSame([1, 2, 3], $this->ids($ds->withLimit(3)));
+    }
+
+    public function testWithLimitAndOffsetSkipsItems(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->peopleArray());
+
+        self::assertSame([3, 4], $this->ids($ds->withLimit(2, 2)));
+    }
+
+    public function testWithLimitOffsetZeroIsTheSameAsNoOffset(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->peopleArray());
+
+        self::assertSame([1, 2], $this->ids($ds->withLimit(2, 0)));
+    }
+
+    public function testWithLimitClearsPagination(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds    = new DataSource($this->peopleArray());
+        $paged = $ds->withPagination(1, 2);
+
+        self::assertTrue($paged->isPaginated());
+
+        $limited = $paged->withLimit(3);
+        self::assertFalse($limited->isPaginated());
+        self::assertSame([1, 2, 3], $this->ids($limited));
+    }
+
+    public function testWithPaginationClearsLimit(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds      = new DataSource($this->peopleArray());
+        $limited = $ds->withLimit(2);
+
+        self::assertSame([1, 2], $this->ids($limited));
+
+        $paged = $limited->withPagination(2, 2);
+        self::assertTrue($paged->isPaginated());
+        self::assertSame([3, 4], $this->ids($paged));
+    }
+
+    public function testWithLimitDoesNotMutateOriginal(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->peopleArray());
+        $ds->withLimit(2);
+
+        self::assertSame([1, 2, 3, 4, 5], $this->ids($ds));
+    }
+
+    public function testWithLimitRejectsNonPositiveLimit(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->peopleArray());
+
+        $this->expectException(InvalidArgumentException::class);
+        $ds->withLimit(0);
+    }
+
+    public function testWithoutLimitClearsLimit(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds      = new DataSource($this->peopleArray());
+        $limited = $ds->withLimit(2);
+        $cleared = $limited->withoutLimit();
+
+        self::assertSame([1, 2, 3, 4, 5], $this->ids($cleared));
+    }
+
+    public function testWithoutLimitUndoRestoresPreviousLimit(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds     = new DataSource($this->peopleArray());
+        $first  = $ds->withLimit(3);
+        $second = $first->withLimit(1);
+        $back   = $second->withoutLimit(true);
+
+        self::assertSame([1, 2, 3], $this->ids($back));
+    }
+
+    public function testWithoutLimitUndoOnFreshInstanceIsNoOp(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->peopleArray());
+
+        self::assertSame([1, 2, 3, 4, 5], $this->ids($ds->withoutLimit(true)));
+    }
+
+    public function testWithLimitCombinedWithQueryExpression(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->peopleArray());
+
+        $qry = QueryExpression::create()->andWhere(QueryExpression::create()->expr()->greaterThan('age', 25));
+
+        // age > 25: Alice(1), Carol(3), Dan(4) → limit 2 → [1, 3]
+        self::assertSame([1, 3], $this->ids($ds->withQueryExpression($qry)->withLimit(2)));
+    }
+
+    // ------------------------------------------------------------------
+    // Immutability
+    // ------------------------------------------------------------------
 
     public function testIndependentClonesDoNotShareHistory(): void
     {

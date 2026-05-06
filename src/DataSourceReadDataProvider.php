@@ -118,6 +118,24 @@ trait DataSourceReadDataProvider
     }
 
     #[Override]
+    public function withLimit(int $limit, int|null $offset = null): static
+    {
+        $clone             = clone $this;
+        $clone->dataSource = $clone->dataSource()->withLimit($limit, $offset);
+
+        return $clone;
+    }
+
+    #[Override]
+    public function withoutLimit(bool $undo = false): static
+    {
+        $clone             = clone $this;
+        $clone->dataSource = $clone->dataSource()->withoutLimit($undo);
+
+        return $clone;
+    }
+
+    #[Override]
     public function queryExpressions(): array
     {
         return $this->dataSource()->queryExpressions();

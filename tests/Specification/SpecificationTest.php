@@ -14,10 +14,13 @@ use Kraz\ReadModel\Specification\SpecificationInterface;
 use Kraz\ReadModel\Tests\Query\Fixtures\PersonFixture;
 use Kraz\ReadModel\Tests\Specification\Fixtures\AgeAboveSpecification;
 use Kraz\ReadModel\Tests\Specification\Fixtures\NameEqualsSpecification;
+use LogicException;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
+use ReflectionProperty;
 
 use function count;
+use function iterator_to_array;
 
 #[CoversClass(AbstractSpecification::class)]
 #[CoversClass(CompositeAndSpecification::class)]
@@ -325,14 +328,63 @@ final class SpecificationTest extends TestCase
         self::assertSame([1, 3, 4], $this->ids($filtered));
     }
 
-    public function testWithSpecificationCountMatchesFilteredItems(): void
+    public function testWithSpecificationThrowsOnCount(): void
     {
         /** @var DataSource<PersonFixture> $ds */
         $ds       = new DataSource($this->people());
         $filtered = $ds->withSpecification(new AgeAboveSpecification(28));
 
-        self::assertSame(3, $filtered->count());
-        self::assertSame(3, $filtered->totalCount());
+        $this->expectException(LogicException::class);
+        $filtered->count();
+    }
+
+    public function testWithSpecificationThrowsOnTotalCount(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds       = new DataSource($this->people());
+        $filtered = $ds->withSpecification(new AgeAboveSpecification(28));
+
+        $this->expectException(LogicException::class);
+        $filtered->totalCount();
+    }
+
+    public function testWithSpecificationThrowsOnIsEmpty(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds       = new DataSource($this->people());
+        $filtered = $ds->withSpecification(new AgeAboveSpecification(28));
+
+        $this->expectException(LogicException::class);
+        $filtered->isEmpty();
+    }
+
+    public function testWithSpecificationIsPaginatedReturnsFalse(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds       = new DataSource($this->people());
+        $filtered = $ds->withSpecification(new AgeAboveSpecification(28));
+
+        self::assertFalse($filtered->isPaginated());
+    }
+
+    public function testWithSpecificationThrowsOnPaginator(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds       = new DataSource($this->people());
+        $filtered = $ds->withSpecification(new AgeAboveSpecification(28));
+
+        $this->expectException(LogicException::class);
+        $filtered->paginator();
+    }
+
+    public function testWithSpecificationThrowsOnGetResult(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds       = new DataSource($this->people());
+        $filtered = $ds->withSpecification(new AgeAboveSpecification(28));
+
+        $this->expectException(LogicException::class);
+        $filtered->getResult();
     }
 
     public function testWithSpecificationDoesNotMutateOriginal(): void
@@ -441,15 +493,41 @@ final class SpecificationTest extends TestCase
         self::assertSame([3], $this->ids($filtered));
     }
 
-    public function testWithSpecificationWorksWithPagination(): void
+    public function testSpecWithPaginationThrowsAtCompositionTimeWhenSpecFirst(): void
     {
         /** @var DataSource<PersonFixture> $ds */
-        $ds     = new DataSource($this->people());
-        $result = $ds->withSpecification(new AgeAboveSpecification(28))->withPagination(1, 2);
+        $ds = new DataSource($this->people());
 
-        self::assertTrue($result->isPaginated());
-        self::assertSame([1, 3], $this->ids($result));
-        self::assertSame(3, $result->totalCount());
+        $this->expectException(LogicException::class);
+        $ds->withSpecification(new AgeAboveSpecification(28))->withPagination(1, 2);
+    }
+
+    public function testSpecWithPaginationThrowsAtCompositionTimeWhenPaginationFirst(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->people());
+
+        $this->expectException(LogicException::class);
+        $ds->withPagination(1, 2)->withSpecification(new AgeAboveSpecification(28));
+    }
+
+    public function testSpecWithPaginationThrowsAtIterationTime(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->people());
+
+        $spec     = new AgeAboveSpecification(28);
+        $withSpec = $ds->withSpecification($spec);
+
+        // Bypass the composition guard by injecting pagination directly into the clone
+        // to verify the data-access guard also works.
+        $reflection = new ReflectionProperty($withSpec, 'pagination');
+        $reflection->setAccessible(true);
+        $clone = clone $withSpec;
+        $reflection->setValue($clone, [1, 2]);
+
+        $this->expectException(LogicException::class);
+        iterator_to_array($clone->getIterator());
     }
 
     public function testCompositeAndSpecificationViaAndMethodFiltersCorrectly(): void
@@ -511,9 +589,7 @@ final class SpecificationTest extends TestCase
         $ds       = new DataSource($paginator);
         $filtered = $ds->withSpecification(new AgeAboveSpecification(28));
 
-        self::assertFalse($filtered->isPaginated());
+        // Iteration is the only allowed data-access method when specs are set.
         self::assertSame([1, 3, 4], $this->ids($filtered));
-        self::assertSame(3, $filtered->count());
-        self::assertSame(3, $filtered->totalCount());
     }
 }

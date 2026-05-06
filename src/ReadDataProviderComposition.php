@@ -11,6 +11,7 @@ use Kraz\ReadModel\Query\QueryExpressionProvider;
 use Kraz\ReadModel\Query\QueryExpressionProviderInterface;
 use Kraz\ReadModel\Query\QueryRequest;
 use Kraz\ReadModel\Specification\SpecificationInterface;
+use LogicException;
 use Override;
 use ReflectionClassConstant;
 use ReflectionObject;
@@ -45,6 +46,11 @@ trait ReadDataProviderComposition
     private array|null $pagination = null;
     /** @phpstan-var array<int, array{int<0, max>, int<0, max>}|null> */
     private array $paginationHistory = [];
+
+    /** @phpstan-var array{int<0, max>, int<0, max>|null}|null */
+    private array|null $limit = null;
+    /** @phpstan-var array<int, array{int<0, max>, int<0, max>|null}|null> */
+    private array $limitHistory = [];
 
     /** @phpstan-var QueryExpression[] */
     private array $queryExpressions = [];
@@ -127,6 +133,10 @@ trait ReadDataProviderComposition
     #[Override]
     public function withPagination(int $page, int $itemsPerPage): static
     {
+        if (count($this->specifications) > 0) {
+            throw new LogicException('Cannot use pagination when specifications are set.');
+        }
+
         if ($page <= 0) {
             throw new InvalidArgumentException('Expected a positive integer.');
         }
@@ -139,6 +149,8 @@ trait ReadDataProviderComposition
         $cloned                      = clone $this;
         $cloned->paginationHistory[] = $cloned->pagination;
         $cloned->pagination          = [$page, $itemsPerPage];
+        $cloned->limit               = null;
+        $cloned->limitHistory        = [];
 
         return $cloned;
     }
@@ -156,6 +168,45 @@ trait ReadDataProviderComposition
         } else {
             $cloned->pagination        = null;
             $cloned->paginationHistory = [];
+        }
+
+        return $cloned;
+    }
+
+    #[Override]
+    public function withLimit(int $limit, int|null $offset = null): static
+    {
+        if ($limit <= 0) {
+            throw new InvalidArgumentException('Expected a positive integer for limit.');
+        }
+
+        if ($offset !== null && $offset < 0) {
+            throw new InvalidArgumentException('Expected a non-negative integer for offset.');
+        }
+
+        /** @phpstan-var static<T> $cloned */
+        $cloned                    = clone $this;
+        $cloned->limitHistory[]    = $cloned->limit;
+        $cloned->limit             = [$limit, $offset];
+        $cloned->pagination        = null;
+        $cloned->paginationHistory = [];
+
+        return $cloned;
+    }
+
+    #[Override]
+    public function withoutLimit(bool $undo = false): static
+    {
+        /** @phpstan-var static<T> $cloned */
+        $cloned = clone $this;
+
+        if ($undo) {
+            $cloned->limit = count($cloned->limitHistory) > 0
+                ? array_pop($cloned->limitHistory)
+                : null;
+        } else {
+            $cloned->limit        = null;
+            $cloned->limitHistory = [];
         }
 
         return $cloned;
@@ -226,6 +277,10 @@ trait ReadDataProviderComposition
     #[Override]
     public function withSpecification(SpecificationInterface $specification, bool $append = false): static
     {
+        if ($this->pagination !== null) {
+            throw new LogicException('Cannot use specifications when pagination is set.');
+        }
+
         /** @phpstan-var static<T> $cloned */
         $cloned                          = clone $this;
         $cloned->specificationsHistory[] = $cloned->specifications;

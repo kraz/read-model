@@ -35,6 +35,8 @@ interface ReadDataProviderCompositionInterface
     /**
      * Enable data pagination.
      *
+     * Setting this clears any limit and/or offset already set.
+     *
      * @phpstan-param int<0, max> $page
      * @phpstan-param int<0, max> $itemsPerPage
      *
@@ -51,6 +53,28 @@ interface ReadDataProviderCompositionInterface
      * @phpstan-return static<T>
      */
     public function withoutPagination(bool $undo = false): static;
+
+    /**
+     * Limit the number of returned items, with an optional offset.
+     *
+     * Setting this clears any active pagination.
+     *
+     * @phpstan-param int<0, max> $limit
+     * @phpstan-param int<0, max>|null $offset
+     *
+     * @phpstan-return static<T>
+     */
+    public function withLimit(int $limit, int|null $offset = null): static;
+
+    /**
+     * Remove the active limit/offset.
+     *
+     * When `$undo` is `TRUE` the limit is reverted to the state before calling the last
+     * `withLimit`. When `$undo` is `FALSE` (the default behavior) it clears the limit completely.
+     *
+     * @phpstan-return static<T>
+     */
+    public function withoutLimit(bool $undo = false): static;
 
     /**
      * Get list of the currently applied query expressions
