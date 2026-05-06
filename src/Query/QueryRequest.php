@@ -23,7 +23,9 @@ use function json_encode;
  * @phpstan-type QueryRequestComposite = array{
  *      query?: QueryExpression|QueryExpressionComposite|string|null,
  *      page?: int|null,
- *      itemsPerPage?: int|null
+ *      itemsPerPage?: int|null,
+ *      limit?: int<0, max>|null,
+ *      offset?: int<0, max>|null,
  *  }
  */
 final class QueryRequest implements JsonSerializable, Stringable
@@ -34,12 +36,24 @@ final class QueryRequest implements JsonSerializable, Stringable
         private int|null $page = null,
         /** @phpstan-var int<0, max>|null */
         private int|null $itemsPerPage = null,
+        /** @phpstan-var int<0, max>|null */
+        private int|null $limit = null,
+        /** @phpstan-var int<0, max>|null */
+        private int|null $offset = null,
     ) {
         if ($page !== null && $page <= 0) {
             throw new InvalidArgumentException('Expected a positive integer.');
         }
 
         if ($itemsPerPage !== null && $itemsPerPage <= 0) {
+            throw new InvalidArgumentException('Expected a positive integer.');
+        }
+
+        if ($limit !== null && $limit <= 0) {
+            throw new InvalidArgumentException('Expected a positive integer.');
+        }
+
+        if ($offset !== null && $offset < 0) {
             throw new InvalidArgumentException('Expected a positive integer.');
         }
     }
@@ -61,6 +75,18 @@ final class QueryRequest implements JsonSerializable, Stringable
         return $this->itemsPerPage;
     }
 
+    /** @phpstan-return int<0, max>|null */
+    public function getLimit(): int|null
+    {
+        return $this->limit;
+    }
+
+    /** @phpstan-return int<0, max>|null */
+    public function getOffset(): int|null
+    {
+        return $this->offset;
+    }
+
     public function isEmpty(): bool
     {
         if ($this->query !== null && ! $this->query->isEmpty()) {
@@ -71,7 +97,15 @@ final class QueryRequest implements JsonSerializable, Stringable
             return false;
         }
 
-        return $this->itemsPerPage === null || $this->itemsPerPage === 0;
+        if ($this->itemsPerPage !== null && $this->itemsPerPage !== 0) {
+            return false;
+        }
+
+        if ($this->limit !== null && $this->limit > 0) {
+            return false;
+        }
+
+        return $this->offset === null || $this->offset < 0;
     }
 
     /**
@@ -97,7 +131,9 @@ final class QueryRequest implements JsonSerializable, Stringable
             'query' => $this->query !== null && ! $this->query->isEmpty() ? $this->query->toArray() : null,
             'page' => $this->page !== null && $this->page !== 0 ? $this->page : null,
             'itemsPerPage' => $this->itemsPerPage !== null && $this->itemsPerPage !== 0 ? $this->itemsPerPage : null,
-        ]);
+            'limit' => $this->limit !== null && $this->limit > 0 ? $this->limit : null,
+            'offset' => $this->offset !== null && $this->offset >= 0 ? $this->offset : null,
+        ], static fn (mixed $v): bool => $v !== null && $v !== []);
     }
 
     public function __toString(): string
@@ -171,6 +207,36 @@ final class QueryRequest implements JsonSerializable, Stringable
         return $clone;
     }
 
+    /**
+     * @phpstan-param int<0, max> $limit
+     * @phpstan-param int<0, max>|null $offset
+     */
+    public function withLimit(int $limit, int|null $offset = null): self
+    {
+        if ($limit <= 0) {
+            throw new InvalidArgumentException('Expected a positive integer.');
+        }
+
+        if ($offset !== null && $offset < 0) {
+            throw new InvalidArgumentException('Expected a positive integer.');
+        }
+
+        $clone         = clone $this;
+        $clone->limit  = $limit;
+        $clone->offset = $offset;
+
+        return $clone;
+    }
+
+    public function withoutLimit(): self
+    {
+        $clone         = clone $this;
+        $clone->limit  = null;
+        $clone->offset = null;
+
+        return $clone;
+    }
+
     /** @phpstan-return QueryRequestComposite */
     public function __serialize(): array
     {
@@ -181,7 +247,9 @@ final class QueryRequest implements JsonSerializable, Stringable
      * @phpstan-param array{
      *     query?: QueryExpressionComposite|null,
      *     page?: int<0, max>|null,
-     *     itemsPerPage?: int<0, max>|null
+     *     itemsPerPage?: int<0, max>|null,
+     *     limit?: int<0, max>|null,
+     *     offset?: int<0, max>|null,
      * } $data
      */
     public function __unserialize(array $data): void
@@ -192,6 +260,9 @@ final class QueryRequest implements JsonSerializable, Stringable
         $page         = $data['page'] ?? null;
         $itemsPerPage = $data['itemsPerPage'] ?? null;
 
+        $limit  = $data['limit'] ?? null;
+        $offset = $data['offset'] ?? null;
+
         if ($page !== null && $page <= 0) {
             throw new InvalidArgumentException('Expected a positive integer.');
         }
@@ -200,8 +271,18 @@ final class QueryRequest implements JsonSerializable, Stringable
             throw new InvalidArgumentException('Expected a positive integer.');
         }
 
+        if ($limit !== null && $limit <= 0) {
+            throw new InvalidArgumentException('Expected a positive integer.');
+        }
+
+        if ($offset !== null && $offset < 0) {
+            throw new InvalidArgumentException('Expected a positive integer.');
+        }
+
         $this->page         = $page;
         $this->itemsPerPage = $itemsPerPage;
+        $this->limit        = $limit;
+        $this->offset       = $offset;
     }
 
     public function __clone()
@@ -237,18 +318,30 @@ final class QueryRequest implements JsonSerializable, Stringable
             }
         }
 
-        /** @phpstan-var int<0, max> $page */
+        /** @phpstan-var int<0, max>|null $page */
         $page = $request['page'] ?? null;
         if ($page !== null && ! is_int($page)) {
             throw new InvalidArgumentException('Expected null or an integer.');
         }
 
-        /** @phpstan-var int<0, max> $itemsPerPage */
+        /** @phpstan-var int<0, max>|null $itemsPerPage */
         $itemsPerPage = $request['itemsPerPage'] ?? $request['pageSize'] ?? null;
         if ($itemsPerPage !== null && ! is_int($itemsPerPage)) {
             throw new InvalidArgumentException('Expected null or an integer.');
         }
 
-        return new self($query, $page, $itemsPerPage);
+        /** @phpstan-var int<0, max>|null $limit */
+        $limit = $request['limit'] ?? null;
+        if ($limit !== null && ! is_int($limit)) {
+            throw new InvalidArgumentException('Expected null or an integer.');
+        }
+
+        /** @phpstan-var int<0, max>|null $offset */
+        $offset = $request['offset'] ?? null;
+        if ($offset !== null && ! is_int($offset)) {
+            throw new InvalidArgumentException('Expected null or an integer.');
+        }
+
+        return new self($query, $page, $itemsPerPage, $limit, $offset);
     }
 }

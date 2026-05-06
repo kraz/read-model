@@ -683,6 +683,29 @@ final class DataSourceTest extends TestCase
         self::assertSame([2], $this->ids($applied));
     }
 
+    public function testWithQueryRequestAppliesLimit(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->peopleArray());
+
+        $request = QueryRequest::create()->withLimit(2);
+        $applied = $ds->withQueryRequest($request);
+
+        self::assertFalse($applied->isPaginated());
+        self::assertSame([1, 2], $this->ids($applied));
+    }
+
+    public function testWithQueryRequestAppliesLimitAndOffset(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->peopleArray());
+
+        $request = QueryRequest::create()->withLimit(2, 2);
+        $applied = $ds->withQueryRequest($request);
+
+        self::assertSame([3, 4], $this->ids($applied));
+    }
+
     // ------------------------------------------------------------------
     // Query modifier
     // ------------------------------------------------------------------

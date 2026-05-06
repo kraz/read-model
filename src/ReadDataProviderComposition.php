@@ -449,6 +449,10 @@ trait ReadDataProviderComposition
             $cloned = $cloned->withPagination($queryRequest->getPage(), $queryRequest->getItemsPerPage());
         }
 
+        if ($queryRequest->getLimit() !== null) {
+            $cloned = $cloned->withLimit($queryRequest->getLimit(), $queryRequest->getOffset());
+        }
+
         return $cloned;
     }
 
@@ -516,6 +520,13 @@ trait ReadDataProviderComposition
         $page     = (int) ($input['page'] ?? 0);
         $pageSize = (int) ($input['pageSize'] ?? 0);
 
+        // Load limit and offset
+
+        $limit  = $input['limit'] ?? null;
+        $limit  = $limit !== null ? (int) $limit : null;
+        $offset = ($input['offset'] ?? null);
+        $offset = $offset !== null ? (int) $offset : null;
+
         // Apply
 
         if (count($filters) > 0) {
@@ -535,6 +546,12 @@ trait ReadDataProviderComposition
             $clone = $clone->withPagination($page, $pageSize);
         } else {
             $clone = $clone->withoutPagination();
+        }
+
+        if ($limit !== null && $limit > 0 && ($offset === null || $offset >= 0)) {
+            $clone = $clone->withLimit($limit, $offset);
+        } else {
+            $clone = $clone->withoutLimit();
         }
 
         return $query !== null ? $clone->withQueryExpression($query) : $clone;
