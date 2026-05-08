@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kraz\ReadModel\Tests\Query;
 
+use InvalidArgumentException;
 use Kraz\ReadModel\Collections\ArrayCollection;
 use Kraz\ReadModel\Collections\Criteria;
 use Kraz\ReadModel\Collections\Selectable;
@@ -14,6 +15,7 @@ use Kraz\ReadModel\ReadModelDescriptorFactory;
 use Kraz\ReadModel\ReadModelDescriptorFactoryInterface;
 use Kraz\ReadModel\Tests\Query\Fixtures\FactoryDtoFixture;
 use Kraz\ReadModel\Tests\Query\Fixtures\PersonFixture;
+use LogicException;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
@@ -173,5 +175,46 @@ final class QueryExpressionProviderTest extends TestCase
         $result = $provider->apply($data, QueryExpression::create());
 
         self::assertSame($this->ids($data), $this->ids($result));
+    }
+
+    // ------------------------------------------------------------------
+    // requireSingleRootIdentifier
+    // ------------------------------------------------------------------
+
+    public function testRequireSingleRootIdentifierReturnsStringIdentifier(): void
+    {
+        $provider = new QueryExpressionProvider(new ReadModelDescriptorFactory());
+        $provider->setRootIdentifier('id');
+
+        self::assertSame('id', $provider->requireSingleRootIdentifier());
+    }
+
+    public function testRequireSingleRootIdentifierReturnsFromArrayWithOneElement(): void
+    {
+        $provider = new QueryExpressionProvider(new ReadModelDescriptorFactory());
+        $provider->setRootIdentifier(['uuid']);
+
+        self::assertSame('uuid', $provider->requireSingleRootIdentifier());
+    }
+
+    public function testRequireSingleRootIdentifierThrowsForCompositeIdentifiers(): void
+    {
+        $provider = new QueryExpressionProvider(new ReadModelDescriptorFactory());
+        $provider->setRootIdentifier(['id', 'tenant']);
+
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('Composite root identifiers are not supported');
+
+        $provider->requireSingleRootIdentifier();
+    }
+
+    public function testRequireSingleRootIdentifierThrowsWhenNotConfigured(): void
+    {
+        $provider = new QueryExpressionProvider(new ReadModelDescriptorFactory());
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('"root_identifier"');
+
+        $provider->requireSingleRootIdentifier();
     }
 }

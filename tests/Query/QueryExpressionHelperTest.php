@@ -13,6 +13,7 @@ use Kraz\ReadModel\Query\QueryExpressionHelper;
 use Kraz\ReadModel\Query\QueryExpressionProviderInterface;
 use Kraz\ReadModel\ReadModelDescriptor;
 use Kraz\ReadModel\Tests\Query\Fixtures\PersonFixture;
+use LogicException;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
@@ -271,7 +272,7 @@ final class QueryExpressionHelperTest extends TestCase
     {
         $qry = QueryExpression::create()->withValues([1]);
 
-        $this->expectException(RuntimeException::class);
+        $this->expectException(LogicException::class);
         $this->expectExceptionMessage('Did you missed the "root_identifier" option');
 
         QueryExpressionHelper::create($this->people())->apply($qry);
@@ -291,7 +292,7 @@ final class QueryExpressionHelperTest extends TestCase
     {
         $qry = QueryExpression::create()->withValues([1]);
 
-        $this->expectException(RuntimeException::class);
+        $this->expectException(LogicException::class);
         $this->expectExceptionMessage('"."');
 
         QueryExpressionHelper::create($this->people(), null, ['root_identifier' => 'p.id'])->apply($qry);
@@ -470,5 +471,43 @@ final class QueryExpressionHelperTest extends TestCase
         $qry = $qry->andWhere($qry->expr()->equalTo('name', 'alice', false));
 
         self::assertSame([], $this->applyAndGetIds($this->people(), $qry));
+    }
+
+    // ------------------------------------------------------------------
+    // requireSingleValueRootIdentifier
+    // ------------------------------------------------------------------
+
+    public function testRequireSingleValueRootIdentifierAcceptsString(): void
+    {
+        self::assertSame('id', QueryExpressionHelper::requireSingleValueRootIdentifier('id'));
+    }
+
+    public function testRequireSingleValueRootIdentifierAcceptsSingleElementArray(): void
+    {
+        self::assertSame('uuid', QueryExpressionHelper::requireSingleValueRootIdentifier(['uuid']));
+    }
+
+    public function testRequireSingleValueRootIdentifierThrowsForCompositeArray(): void
+    {
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('Composite root identifiers are not supported');
+
+        QueryExpressionHelper::requireSingleValueRootIdentifier(['id', 'tenant']);
+    }
+
+    public function testRequireSingleValueRootIdentifierThrowsForNonArrayNonString(): void
+    {
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('Did you missed the "root_identifier" option');
+
+        QueryExpressionHelper::requireSingleValueRootIdentifier(42);
+    }
+
+    public function testRequireSingleValueRootIdentifierThrowsForEmptyArray(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('"root_identifier"');
+
+        QueryExpressionHelper::requireSingleValueRootIdentifier([]);
     }
 }

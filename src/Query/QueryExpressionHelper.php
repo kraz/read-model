@@ -12,6 +12,7 @@ use Kraz\ReadModel\Collections\ExpressionBuilder;
 use Kraz\ReadModel\Collections\Order;
 use Kraz\ReadModel\Collections\Selectable;
 use Kraz\ReadModel\ReadModelDescriptor;
+use LogicException;
 use RuntimeException;
 
 use function array_key_exists;
@@ -35,7 +36,7 @@ use function substr;
  * @phpstan-type QueryExpressionHelperOptions = array{
  *     root_identifier?: string|string[],
  *     root_alias?: string|string[],
- *     read_model_descriptor?: ReadModelDescriptor|string|null,
+ *     read_model_descriptor?: ReadModelDescriptor|class-string|null,
  *     field_map?: array<string, string>,
  *     expressions?: array<string, array{exp?: mixed}>,
  *     groups?: array<string, array{
@@ -96,30 +97,7 @@ final class QueryExpressionHelper
 
     private function getRootIdentifier(): string
     {
-        $rootIdentifier = $this->options['root_identifier'] ?? null;
-        if (is_string($rootIdentifier)) {
-            $rootIdentifier = [$rootIdentifier];
-        }
-
-        if (! is_array($rootIdentifier)) {
-            throw new RuntimeException('Can not determine the root identifier. Did you missed the "root_identifier" option?');
-        }
-
-        if (count($rootIdentifier) > 1) {
-            throw new RuntimeException('Composite root identifiers are not supported.');
-        }
-
-        $rootIdentifier = reset($rootIdentifier);
-
-        if (! is_string($rootIdentifier) || $rootIdentifier === '') {
-            throw new InvalidArgumentException('Can not determine the "root_identifier"!');
-        }
-
-        if (str_contains($rootIdentifier, '.')) {
-            throw new RuntimeException('The "root_identifier" option must not contain "." symbol. Please use "root_alias" to specify the alias of the table which holds the identifier column!');
-        }
-
-        return $rootIdentifier;
+        return self::requireSingleValueRootIdentifier($this->options['root_identifier'] ?? null);
     }
 
     /** @phpstan-param FilterExpression|FilterCompositeArrayItems $filter */
@@ -266,5 +244,37 @@ final class QueryExpressionHelper
     public static function create(Selectable $data, ReadModelDescriptor|null $descriptor = null, array $options = []): QueryExpressionHelper
     {
         return new QueryExpressionHelper($data, $descriptor, $options);
+    }
+
+    /**
+     * Requires single root identifier for example when working with values
+     *
+     * @throws LogicException
+     */
+    public static function requireSingleValueRootIdentifier(mixed $rootIdentifier): string
+    {
+        if (is_string($rootIdentifier)) {
+            $rootIdentifier = [$rootIdentifier];
+        }
+
+        if (! is_array($rootIdentifier)) {
+            throw new LogicException('Can not determine the root identifier. Did you missed the "root_identifier" option?');
+        }
+
+        if (count($rootIdentifier) > 1) {
+            throw new LogicException('Composite root identifiers are not supported.');
+        }
+
+        $rootIdentifier = reset($rootIdentifier);
+
+        if (! is_string($rootIdentifier) || $rootIdentifier === '') {
+            throw new InvalidArgumentException('The "root_identifier" is invalid!');
+        }
+
+        if (str_contains($rootIdentifier, '.')) {
+            throw new LogicException('The "root_identifier" option must not contain "." symbol. Please use "root_alias" to specify the alias of the table which holds the identifier column!');
+        }
+
+        return $rootIdentifier;
     }
 }

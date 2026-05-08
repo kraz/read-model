@@ -11,9 +11,11 @@ use Kraz\ReadModel\Collections\ArrayCollection;
 use Kraz\ReadModel\DataSource;
 use Kraz\ReadModel\Pagination\InMemoryPaginator;
 use Kraz\ReadModel\Query\QueryExpression;
+use Kraz\ReadModel\Query\QueryExpressionProvider;
 use Kraz\ReadModel\Query\QueryExpressionProviderInterface;
 use Kraz\ReadModel\Query\QueryRequest;
 use Kraz\ReadModel\ReadDataProviderInterface;
+use Kraz\ReadModel\ReadModelDescriptorFactory;
 use Kraz\ReadModel\ReadModelDescriptorFactoryInterface;
 use Kraz\ReadModel\ReadResponse;
 use Kraz\ReadModel\Tests\Query\Fixtures\PersonFixture;
@@ -903,6 +905,7 @@ final class DataSourceTest extends TestCase
     {
         $passthrough = $this->createStub(QueryExpressionProviderInterface::class);
         $passthrough->method('apply')->willReturnArgument(0);
+        $passthrough->method('requireSingleRootIdentifier')->willReturn('id');
 
         /** @var DataSource<PersonFixture> $ds */
         $ds = new DataSource($this->people());
@@ -915,6 +918,117 @@ final class DataSourceTest extends TestCase
 
         $result = $filtered->getResult();
         self::assertIsArray($result);
+    }
+
+    public function testDataSortsItemsByQueryExpressionValuesOrder(): void
+    {
+        $provider = new QueryExpressionProvider(new ReadModelDescriptorFactory());
+        $provider->setRootIdentifier('id');
+
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->people());
+        $ds = $ds->withQueryExpressionProvider($provider);
+
+        $result = $ds->withQueryExpression(QueryExpression::create()->withValues([3, 1, 2]))->data();
+
+        self::assertSame([3, 1, 2], $this->ids($result));
+    }
+
+    public function testDataSortsItemsWhenValuesOrderDiffersFromNaturalOrder(): void
+    {
+        $provider = new QueryExpressionProvider(new ReadModelDescriptorFactory());
+        $provider->setRootIdentifier('id');
+
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->people());
+        $ds = $ds->withQueryExpressionProvider($provider);
+
+        $result = $ds->withQueryExpression(QueryExpression::create()->withValues([2, 3, 1]))->data();
+
+        self::assertSame([2, 3, 1], $this->ids($result));
+    }
+
+    public function testGetResultIsArraySortedByQueryExpressionValuesOrder(): void
+    {
+        $provider = new QueryExpressionProvider(new ReadModelDescriptorFactory());
+        $provider->setRootIdentifier('id');
+
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->people());
+        $ds = $ds->withQueryExpressionProvider($provider);
+
+        $result = $ds->withQueryExpression(QueryExpression::create()->withValues([3, 1, 2]))->getResult();
+
+        self::assertIsArray($result);
+        self::assertSame([3, 1, 2], $this->ids($result));
+    }
+
+    public function testDataSortsSubsetOfItemsByValuesOrder(): void
+    {
+        $provider = new QueryExpressionProvider(new ReadModelDescriptorFactory());
+        $provider->setRootIdentifier('id');
+
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->people());
+        $ds = $ds->withQueryExpressionProvider($provider);
+
+        $result = $ds->withQueryExpression(QueryExpression::create()->withValues([3, 1]))->data();
+
+        self::assertSame([3, 1], $this->ids($result));
+    }
+
+    public function testAppendedQueryExpressionsContributeToSortOrder(): void
+    {
+        $provider = new QueryExpressionProvider(new ReadModelDescriptorFactory());
+        $provider->setRootIdentifier('id');
+
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->people());
+        $ds = $ds->withQueryExpressionProvider($provider);
+
+        // First QE sets values [3,1,2]; second QE is appended and adds no values (empty)
+        $ds = $ds->withQueryExpression(QueryExpression::create()->withValues([3, 1, 2]));
+        $ds = $ds->withQueryExpression(QueryExpression::create(), true);
+
+        // collectInputValues merges from both QEs: [3,1,2] + [] = [3,1,2]
+        $result = $ds->data();
+
+        self::assertSame([3, 1, 2], $this->ids($result));
+    }
+
+    public function testSortOrderPreservedWhenValuesAreSplitAcrossAppendedQueryExpressions(): void
+    {
+        $provider = new QueryExpressionProvider(new ReadModelDescriptorFactory());
+        $provider->setRootIdentifier('id');
+
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->people());
+        $ds = $ds->withQueryExpressionProvider($provider);
+
+        // Values are split: QE1=[3,2,1], QE2=[2,3] (appended)
+        // Merged values index: [3,2,1] (unique, QE1 order preserved)
+        // id IN (3,2,1) matches all three → sorted by [3,2,1] → [3,2,1]
+        $ds = $ds->withQueryExpression(QueryExpression::create()->withValues([3, 2, 1]));
+        $ds = $ds->withQueryExpression(QueryExpression::create()->withValues([2, 3]), true);
+
+        self::assertSame([3, 2, 1], $this->ids($ds->data()));
+    }
+
+    public function testValuesCanBeSplitAcrossAppendedQueryExpressionsWithoutLosingResults(): void
+    {
+        $provider = new QueryExpressionProvider(new ReadModelDescriptorFactory());
+        $provider->setRootIdentifier('id');
+
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->people());
+        $ds = $ds->withQueryExpressionProvider($provider);
+
+        // Values split as [3,2] + [1] across two QEs — merged to [3,2,1]
+        // All three items match; sorted by [3,2,1] → [3,2,1] (not empty)
+        $ds = $ds->withQueryExpression(QueryExpression::create()->withValues([3, 2]));
+        $ds = $ds->withQueryExpression(QueryExpression::create()->withValues([1]), true);
+
+        self::assertSame([3, 2, 1], $this->ids($ds->data()));
     }
 
     // ------------------------------------------------------------------
@@ -934,7 +1048,8 @@ final class DataSourceTest extends TestCase
     public function testWithQueryExpressionProviderIsUsedWhenFiltering(): void
     {
         $custom = $this->createMock(QueryExpressionProviderInterface::class);
-        $custom->expects(self::once())->method('apply')->willReturnArgument(0);
+        $custom->expects(self::exactly(2))->method('apply')->willReturnArgument(0);
+        $custom->method('requireSingleRootIdentifier')->willReturn('id');
 
         /** @var DataSource<PersonFixture> $ds */
         $ds  = new DataSource($this->people());

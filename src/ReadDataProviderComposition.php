@@ -21,6 +21,7 @@ use function array_filter;
 use function array_flip;
 use function array_intersect_key;
 use function array_pop;
+use function array_unique;
 use function array_unshift;
 use function array_values;
 use function base64_decode;
@@ -106,6 +107,28 @@ trait ReadDataProviderComposition
         return $this->queryExpressionProvider ?? ($this->queryExpressionProviderDefault ??= $this->createDefaultQueryExpressionProvider($this->getOrCreateDescriptorFactory()));
     }
 
+    /** @phpstan-return list<int|string> */
+    private function collectInputValues(): array
+    {
+        $specQEs = [];
+        foreach ($this->specifications as $specification) {
+            $qe = $specification->getQueryExpression();
+            if ($qe === null || $qe->isEmpty()) {
+                continue;
+            }
+
+            $specQEs[] = $qe;
+        }
+
+        $allQEs = [...$specQEs, ...$this->queryExpressions];
+        $values = [];
+        foreach ($allQEs as $queryExpression) {
+            $values = [...$values, ...($queryExpression->getValues() ?? [])];
+        }
+
+        return array_values(array_unique($values));
+    }
+
     #[Override]
     final public function qry(): QueryExpression
     {
@@ -127,7 +150,7 @@ trait ReadDataProviderComposition
     #[Override]
     final public function isValue(): bool
     {
-        return array_any($this->queryExpressions(), static fn (QueryExpression $queryExpression) => count($queryExpression->getValues() ?? []) > 0);
+        return array_any($this->queryExpressions, static fn (QueryExpression $queryExpression) => count($queryExpression->getValues() ?? []) > 0);
     }
 
     #[Override]

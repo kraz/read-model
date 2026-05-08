@@ -71,6 +71,12 @@ class QueryExpressionProvider implements QueryExpressionProviderInterface
         return $this->rootIdentifier;
     }
 
+    #[Override]
+    public function requireSingleRootIdentifier(): string
+    {
+        return QueryExpressionHelper::requireSingleValueRootIdentifier($this->rootIdentifier);
+    }
+
     /**
      * @phpstan-param Selectable<array-key, T> $data
      * @phpstan-param QueryExpressionHelperOptions $options

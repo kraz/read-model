@@ -9,7 +9,11 @@ use IteratorAggregate;
 use Kraz\ReadModel\Collections\ArrayCollection;
 use Kraz\ReadModel\Pagination\InMemoryPaginator;
 use Kraz\ReadModel\Pagination\PaginatorInterface;
+use Kraz\ReadModel\Query\QueryExpression;
+use Kraz\ReadModel\Query\QueryExpressionProvider;
+use Kraz\ReadModel\Query\QueryExpressionProviderInterface;
 use Kraz\ReadModel\Specification\SpecificationInterface;
+use Kraz\ReadModel\Tools\CollectionUtils;
 use Kraz\ReadModel\Tools\TraversableTransformer;
 use LogicException;
 use Override;
@@ -44,6 +48,19 @@ class DataSource implements ReadDataProviderInterface
         }
 
         $this->itemNormalizer = $itemNormalizer;
+    }
+
+    protected function createDefaultDescriptorFactory(): ReadModelDescriptorFactoryInterface
+    {
+        return new ReadModelDescriptorFactory();
+    }
+
+    protected function createDefaultQueryExpressionProvider(ReadModelDescriptorFactoryInterface $factory): QueryExpressionProviderInterface
+    {
+        $provider = new QueryExpressionProvider($factory);
+        $provider->setRootIdentifier('id');
+
+        return $provider;
     }
 
     #[Override]
@@ -117,7 +134,15 @@ class DataSource implements ReadDataProviderInterface
     #[Override]
     public function data(): array
     {
-        return iterator_to_array($this->getIterator());
+        $data = iterator_to_array($this->getIterator());
+        if ($this->isValue()) {
+            $rootIdentifier = $this->getOrCreateQueryExpressionProvider()->requireSingleRootIdentifier();
+            $values         = $this->collectInputValues();
+
+            return CollectionUtils::sortByIndex($data, $rootIdentifier, $values);
+        }
+
+        return $data;
     }
 
     #[Override]
@@ -125,11 +150,12 @@ class DataSource implements ReadDataProviderInterface
     {
         $this->assertNoSpecifications();
 
+        $data = $this->data();
+
         if ($this->isValue()) {
-            return $this->data();
+            return $data;
         }
 
-        $data  = $this->data();
         $page  = $this->isPaginated() ? ($this->paginator()?->getCurrentPage() ?? 1) : 1;
         $total = $this->totalCount();
 
@@ -266,9 +292,30 @@ class DataSource implements ReadDataProviderInterface
                 }
 
                 $queryExpressionProvider = $this->getOrCreateQueryExpressionProvider();
-                foreach ($allQEs as $queryExpression) {
+                $mergedValues            = $this->collectInputValues();
+                if (count($mergedValues) > 0) {
+                    foreach ($allQEs as $queryExpression) {
+                        /** @phpstan-var ArrayCollection<array-key, T> $collection */
+                        $collection = $queryExpressionProvider->apply(
+                            $collection,
+                            $queryExpression,
+                            $descriptor,
+                            [],
+                            QueryExpressionProviderInterface::INCLUDE_DATA_FILTER | QueryExpressionProviderInterface::INCLUDE_DATA_SORT,
+                        );
+                    }
+
                     /** @phpstan-var ArrayCollection<array-key, T> $collection */
-                    $collection = $queryExpressionProvider->apply($collection, $queryExpression, $descriptor);
+                    $collection = $queryExpressionProvider->apply(
+                        $collection,
+                        QueryExpression::create()->withValues($mergedValues),
+                        $descriptor,
+                    );
+                } else {
+                    foreach ($allQEs as $queryExpression) {
+                        /** @phpstan-var ArrayCollection<array-key, T> $collection */
+                        $collection = $queryExpressionProvider->apply($collection, $queryExpression, $descriptor);
+                    }
                 }
 
                 $items = array_values($collection->toArray());

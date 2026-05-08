@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kraz\ReadModel\Query;
 
 use Kraz\ReadModel\ReadModelDescriptor;
+use LogicException;
 
 interface QueryExpressionProviderInterface
 {
@@ -30,6 +31,13 @@ interface QueryExpressionProviderInterface
 
     /** @phpstan-return string[]|string */
     public function getRootIdentifier(): array|string;
+
+    /**
+     * Requires single root identifier for example when working with values
+     *
+     * @throws LogicException
+     */
+    public function requireSingleRootIdentifier(): string;
 
     /**
      * @phpstan-param ExpectedType $data
