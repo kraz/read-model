@@ -9,6 +9,7 @@ use ArrayObject;
 use InvalidArgumentException;
 use Kraz\ReadModel\Collections\ArrayCollection;
 use Kraz\ReadModel\DataSource;
+use Kraz\ReadModel\Exception\MissingValuesException;
 use Kraz\ReadModel\Pagination\InMemoryPaginator;
 use Kraz\ReadModel\Query\QueryExpression;
 use Kraz\ReadModel\Query\QueryExpressionProvider;
@@ -1219,6 +1220,92 @@ final class DataSourceTest extends TestCase
 
         // age > 25: Alice(1), Carol(3), Dan(4) → limit 2 → [1, 3]
         self::assertSame([1, 3], $this->ids($ds->withQueryExpression($qry)->withLimit(2)));
+    }
+
+    // ------------------------------------------------------------------
+    // Missing values enforcement
+    // ------------------------------------------------------------------
+
+    public function testDataThrowsMissingValuesExceptionWhenValueNotFound(): void
+    {
+        $provider = new QueryExpressionProvider(new ReadModelDescriptorFactory());
+        $provider->setRootIdentifier('id');
+
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->people());
+        $ds = $ds->withQueryExpressionProvider($provider);
+
+        $this->expectException(MissingValuesException::class);
+        $ds->withQueryExpression(QueryExpression::create()->withValues([1, 99]))->data();
+    }
+
+    public function testMissingValuesExceptionListsOnlyAbsentIds(): void
+    {
+        $provider = new QueryExpressionProvider(new ReadModelDescriptorFactory());
+        $provider->setRootIdentifier('id');
+
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->people());
+        $ds = $ds->withQueryExpressionProvider($provider);
+
+        try {
+            $ds->withQueryExpression(QueryExpression::create()->withValues([1, 99, 100]))->data();
+            self::fail('Expected MissingValuesException');
+        } catch (MissingValuesException $e) {
+            self::assertSame([99, 100], $e->getValues());
+        }
+    }
+
+    public function testMissingValuesExceptionCarriesFoundItems(): void
+    {
+        $provider = new QueryExpressionProvider(new ReadModelDescriptorFactory());
+        $provider->setRootIdentifier('id');
+
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->people());
+        $ds = $ds->withQueryExpressionProvider($provider);
+
+        try {
+            $ds->withQueryExpression(QueryExpression::create()->withValues([1, 99]))->data();
+            self::fail('Expected MissingValuesException');
+        } catch (MissingValuesException $e) {
+            $items = $e->getItems();
+            self::assertNotNull($items);
+            self::assertCount(1, $items);
+            self::assertInstanceOf(PersonFixture::class, $items[0]);
+            self::assertSame(1, $items[0]->id);
+        }
+    }
+
+    public function testDataDoesNotThrowWhenAllValuesExist(): void
+    {
+        $provider = new QueryExpressionProvider(new ReadModelDescriptorFactory());
+        $provider->setRootIdentifier('id');
+
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->people());
+        $ds = $ds->withQueryExpressionProvider($provider);
+
+        $result = $ds->withQueryExpression(QueryExpression::create()->withValues([1, 2, 3]))->data();
+
+        self::assertSame([1, 2, 3], $this->ids($result));
+    }
+
+    public function testMissingValuesExceptionMessageNamesAbsentIds(): void
+    {
+        $provider = new QueryExpressionProvider(new ReadModelDescriptorFactory());
+        $provider->setRootIdentifier('id');
+
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->people());
+        $ds = $ds->withQueryExpressionProvider($provider);
+
+        try {
+            $ds->withQueryExpression(QueryExpression::create()->withValues([42]))->data();
+            self::fail('Expected MissingValuesException');
+        } catch (MissingValuesException $e) {
+            self::assertStringContainsString('42', $e->getMessage());
+        }
     }
 
     // ------------------------------------------------------------------

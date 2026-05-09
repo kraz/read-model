@@ -45,7 +45,7 @@ interface QueryExpressionProviderInterface
      *
      * @phpstan-return ExpectedType
      *
-     * @phpstan-template ExpectedType of object
+     * @phpstan-template ExpectedType of object|array<string, mixed>|list<array<string, mixed>>
      */
     public function apply(mixed $data, QueryExpression $queryExpression, ReadModelDescriptor|null $descriptor = null, array $options = [], int $includeData = self::INCLUDE_DATA_ALL): mixed;
 }

@@ -5,9 +5,14 @@ declare(strict_types=1);
 namespace Kraz\ReadModel;
 
 use InvalidArgumentException;
+use Kraz\ReadModel\Exception\MissingValuesException;
 use Override;
 use Traversable;
 
+use function array_column;
+use function array_diff;
+use function array_values;
+use function count;
 use function max;
 use function sprintf;
 
@@ -85,6 +90,19 @@ trait ReadDataProviderAccess
             }
 
             $batchOffset += $batchSize;
+        }
+    }
+
+    /**
+     * @phpstan-param T[] $data
+     * @phpstan-param list<int|string> $values
+     */
+    private function assertAllValuesFound(array $data, array $values, string $indexField): void
+    {
+        $found         = array_column($data, $indexField);
+        $missingValues = array_values(array_diff($values, $found));
+        if (count($missingValues) > 0) {
+            throw new MissingValuesException($missingValues, $data);
         }
     }
 }

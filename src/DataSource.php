@@ -138,6 +138,7 @@ class DataSource implements ReadDataProviderInterface
         if ($this->isValue()) {
             $rootIdentifier = $this->getOrCreateQueryExpressionProvider()->requireSingleRootIdentifier();
             $values         = $this->collectInputValues();
+            $this->assertAllValuesFound($data, $values, $rootIdentifier);
 
             return CollectionUtils::sortByIndex($data, $rootIdentifier, $values);
         }

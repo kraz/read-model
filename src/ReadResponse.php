@@ -5,21 +5,23 @@ declare(strict_types=1);
 namespace Kraz\ReadModel;
 
 use ArrayAccess;
+use InvalidArgumentException;
 use RuntimeException;
 
 use function in_array;
 
 /**
- * @phpstan-template T
- * @phpstan-type ReadResponseType = array{data: T[], page: int, total: int}
- * @template-implements ArrayAccess<string, T[]|int|null>
+ * @phpstan-template T of object|array<string, mixed>
+ * @template-implements ArrayAccess<string, T[]|int<0, max>|null>
  */
 class ReadResponse implements ArrayAccess
 {
     /** @phpstan-var T[]|null */
     public array|null $data = null;
-    public int|null $page   = null;
-    public int|null $total  = null;
+    /** @phpstan-var int<0, max>|null */
+    public int|null $page = null;
+    /** @phpstan-var int<0, max>|null */
+    public int|null $total = null;
 
     final public function __construct()
     {
@@ -30,7 +32,7 @@ class ReadResponse implements ArrayAccess
         return in_array((string) $offset, ['data', 'page', 'total']);
     }
 
-    /** @return T[]|int|null */
+    /** @return T[]|int<0, max>|null */
     public function offsetGet(mixed $offset): mixed
     {
         return match ((string) $offset) {
@@ -51,9 +53,22 @@ class ReadResponse implements ArrayAccess
         throw new RuntimeException('Invalid operation. Can not modify read response!');
     }
 
-    /** @phpstan-param T[] $data */
+    /**
+     * @phpstan-param T[] $data
+     * @phpstan-param int<0, max> $page
+     * @phpstan-param int<0, max> $total
+     */
     public static function create(array $data, int $page, int $total): static
     {
+        if ($page <= 0) {
+            throw new InvalidArgumentException('Expected a positive integer.');
+        }
+
+        if ($total < 0) {
+            throw new InvalidArgumentException('Expected a positive integer.');
+        }
+
+        /** @phpstan-var static<T> $instance */
         $instance        = new static();
         $instance->data  = $data;
         $instance->page  = $page;
