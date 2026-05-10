@@ -491,6 +491,24 @@ trait ReadDataProviderComposition
     #[Override]
     public function handleInput(array $input, array $fieldsOperator = [], array $fieldsIgnoreCase = []): static
     {
+        /** @phpstan-var static<T> $dataSource */
+        $dataSource = static::applyInputTo($this, $input, $fieldsOperator, $fieldsIgnoreCase);
+
+        return $dataSource;
+    }
+
+    /**
+     * @phpstan-param J $target
+     * @phpstan-param array<string, mixed>  $input
+     * @phpstan-param array<string, string> $fieldsOperator
+     * @phpstan-param array<string, bool> $fieldsIgnoreCase
+     *
+     * @phpstan-return J
+     *
+     * @phpstan-template J of ReadDataProviderCompositionInterface<object|array<string, mixed>>
+     */
+    public static function applyInputTo(ReadDataProviderCompositionInterface $target, array $input, array $fieldsOperator = [], array $fieldsIgnoreCase = []): ReadDataProviderCompositionInterface
+    {
         // Load query
 
         $query     = null;
@@ -511,7 +529,7 @@ trait ReadDataProviderComposition
         // Load filters
 
         $filters = [];
-        $ref     = new ReflectionObject($this);
+        $ref     = new ReflectionObject($target);
         $fields  = $ref->getConstants(ReflectionClassConstant::IS_PUBLIC);
         $fields  = array_filter($fields, static fn ($c) => str_starts_with($c, 'FIELD_'), ARRAY_FILTER_USE_KEY);
         $fields  = array_values($fields);
@@ -571,8 +589,8 @@ trait ReadDataProviderComposition
             $query   = $query->sortBy($field, $dir);
         }
 
-        /** @phpstan-var static<T> $clone */
-        $clone = clone $this;
+        /** @phpstan-var J $clone */
+        $clone = clone $target;
 
         if ($page > 0 && $pageSize > 0) {
             $clone = $clone->withPagination($page, $pageSize);
@@ -586,6 +604,9 @@ trait ReadDataProviderComposition
             $clone = $clone->withoutLimit();
         }
 
-        return $query !== null ? $clone->withQueryExpression($query) : $clone;
+        /** @phpstan-var J $result */
+        $result = $query !== null ? $clone->withQueryExpression($query) : $clone;
+
+        return $result;
     }
 }

@@ -11,7 +11,10 @@ use Kraz\ReadModel\Query\QueryExpressionProviderInterface;
 use Kraz\ReadModel\Query\QueryRequest;
 use Kraz\ReadModel\Specification\SpecificationInterface;
 use Override;
+use RuntimeException;
 use Traversable;
+
+use function is_callable;
 
 /** @phpstan-template-covariant T of object|array<string, mixed> */
 trait DataSourceReadDataProvider
@@ -300,18 +303,26 @@ trait DataSourceReadDataProvider
     #[Override]
     public function handleInput(array $input, array $fieldsOperator = [], array $fieldsIgnoreCase = []): static
     {
-        $clone             = clone $this;
-        $clone->dataSource = $clone->dataSource()->handleInput($input, $fieldsOperator, $fieldsIgnoreCase);
+        $clone      = clone $this;
+        $dataSource = $clone->dataSource();
+        $method     = [$dataSource::class, 'applyInputTo'];
+        if (! is_callable($method)) {
+            throw new RuntimeException('Can not apply the requested input to this data source!');
+        }
 
-        return $clone;
+        return $method($clone, $input, $fieldsOperator, $fieldsIgnoreCase);
     }
 
     #[Override]
     public function handleRequest(object $request, array $fieldsOperator = [], array $fieldsIgnoreCase = []): static
     {
-        $clone             = clone $this;
-        $clone->dataSource = $clone->dataSource()->handleRequest($request, $fieldsOperator, $fieldsIgnoreCase);
+        $clone      = clone $this;
+        $dataSource = $clone->dataSource();
+        $method     = [$dataSource::class, 'applyRequestTo'];
+        if (! is_callable($method)) {
+            throw new RuntimeException('Can not apply the request to this data source!');
+        }
 
-        return $clone;
+        return $method($clone, $request, $fieldsOperator, $fieldsIgnoreCase);
     }
 }
