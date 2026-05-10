@@ -298,6 +298,15 @@ trait ReadDataProviderComposition
     }
 
     #[Override]
+    final public function specifications(): array
+    {
+        /** @phpstan-var SpecificationInterface<covariant T>[] $specs */
+        $specs = $this->specifications;
+
+        return $specs;
+    }
+
+    #[Override]
     public function withSpecification(SpecificationInterface $specification, bool $append = false): static
     {
         if ($this->pagination !== null) {

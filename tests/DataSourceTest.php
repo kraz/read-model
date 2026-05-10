@@ -20,6 +20,7 @@ use Kraz\ReadModel\ReadModelDescriptorFactory;
 use Kraz\ReadModel\ReadModelDescriptorFactoryInterface;
 use Kraz\ReadModel\ReadResponse;
 use Kraz\ReadModel\Tests\Query\Fixtures\PersonFixture;
+use Kraz\ReadModel\Tests\Specification\Fixtures\AgeAboveSpecification;
 use LogicException;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
@@ -1220,6 +1221,100 @@ final class DataSourceTest extends TestCase
 
         // age > 25: Alice(1), Carol(3), Dan(4) → limit 2 → [1, 3]
         self::assertSame([1, 3], $this->ids($ds->withQueryExpression($qry)->withLimit(2)));
+    }
+
+    // ------------------------------------------------------------------
+    // Specifications (require limit)
+    // ------------------------------------------------------------------
+
+    public function testSpecificationsWithoutLimitThrows(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->peopleArray());
+
+        $this->expectException(LogicException::class);
+        iterator_to_array($ds->withSpecification(new AgeAboveSpecification(28))->getIterator());
+    }
+
+    public function testSpecificationsWithPaginationThrowsBecausePaginationClearsLimit(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->peopleArray());
+
+        $this->expectException(LogicException::class);
+        iterator_to_array(
+            $ds->withLimit(3)->withPagination(1, 2)->withSpecification(new AgeAboveSpecification(28))->getIterator(),
+        );
+    }
+
+    public function testSpecificationsWithLimitFiltersInMemoryData(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->peopleArray());
+
+        // age > 28: Alice(1), Carol(3), Dan(4)
+        $result = iterator_to_array(
+            $ds->withLimit(10)->withSpecification(new AgeAboveSpecification(28))->getIterator(),
+        );
+
+        self::assertSame([1, 3, 4], $this->ids($result));
+    }
+
+    public function testSpecificationsWithLimitAndOffsetFiltersInMemoryData(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->peopleArray());
+
+        // age > 28: Alice(1), Carol(3), Dan(4) — skip 1, take 2
+        $result = iterator_to_array(
+            $ds->withLimit(2, 1)->withSpecification(new AgeAboveSpecification(28))->getIterator(),
+        );
+
+        self::assertSame([3, 4], $this->ids($result));
+    }
+
+    public function testItemNormalizerIsAppliedAfterSpecificationFilter(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->peopleArray());
+
+        $result = iterator_to_array(
+            $ds
+                ->withLimit(10)
+                ->withSpecification(new AgeAboveSpecification(28))
+                ->withItemNormalizer(static fn (PersonFixture $p): int => $p->id)
+                ->getIterator(),
+        );
+
+        self::assertSame([1, 3, 4], $result);
+    }
+
+    // ------------------------------------------------------------------
+    // totalCount semantics
+    // ------------------------------------------------------------------
+
+    public function testTotalCountIgnoresLimitAndReturnsFullMatchingCount(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->peopleArray());
+
+        $limited = $ds->withLimit(2);
+
+        self::assertSame(2, $limited->count());
+        self::assertSame(5, $limited->totalCount());
+    }
+
+    public function testTotalCountWithQueryExpressionAndLimitReturnsFilteredTotal(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->peopleArray());
+
+        $qry     = QueryExpression::create()->andWhere(QueryExpression::create()->expr()->greaterThan('age', 25));
+        $limited = $ds->withQueryExpression($qry)->withLimit(2);
+
+        // age > 25: Alice(1), Carol(3), Dan(4) = 3 matching, limit=2 in view
+        self::assertSame(2, $limited->count());
+        self::assertSame(3, $limited->totalCount());
     }
 
     // ------------------------------------------------------------------

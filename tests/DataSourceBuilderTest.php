@@ -450,6 +450,7 @@ final class DataSourceBuilderTest extends TestCase
 
         $ds = $this->makeBuilder()
             ->withData($this->people())
+            ->withLimit(100)
             ->withSpecification($spec)
             ->create();
 
@@ -485,6 +486,7 @@ final class DataSourceBuilderTest extends TestCase
 
         $ds = $this->makeBuilder()
             ->withData($this->people())
+            ->withLimit(100)
             ->withSpecification($spec1)
             ->withSpecification($spec2, true)
             ->create();
@@ -528,6 +530,7 @@ final class DataSourceBuilderTest extends TestCase
 
         $ds = $this->makeBuilder()
             ->withData($this->people())
+            ->withLimit(100)
             ->withSpecification($spec1)
             ->withSpecification($spec2)
             ->withoutSpecification(true) // undo → back to spec1

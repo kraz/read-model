@@ -17,7 +17,6 @@ use Kraz\ReadModel\Tests\Specification\Fixtures\NameEqualsSpecification;
 use LogicException;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
-use ReflectionProperty;
 
 use function count;
 use function iterator_to_array;
@@ -323,7 +322,7 @@ final class SpecificationTest extends TestCase
     {
         /** @var DataSource<PersonFixture> $ds */
         $ds       = new DataSource($this->people());
-        $filtered = $ds->withSpecification(new AgeAboveSpecification(28));
+        $filtered = $ds->withLimit(100)->withSpecification(new AgeAboveSpecification(28));
 
         self::assertSame([1, 3, 4], $this->ids($filtered));
     }
@@ -411,8 +410,9 @@ final class SpecificationTest extends TestCase
         $ds = new DataSource($this->people());
 
         $filtered = $ds
+            ->withLimit(100)
             ->withSpecification(new AgeAboveSpecification(28))
-            ->withSpecification(new NameEqualsSpecification('Alice'));
+            ->withSpecification(new NameEqualsSpecification('Alice'), true);
 
         self::assertSame([1], $this->ids($filtered));
     }
@@ -433,8 +433,8 @@ final class SpecificationTest extends TestCase
         /** @var DataSource<PersonFixture> $ds */
         $ds = new DataSource($this->people());
 
-        $first  = $ds->withSpecification(new AgeAboveSpecification(28));
-        $second = $first->withSpecification(new NameEqualsSpecification('Alice'));
+        $first  = $ds->withLimit(100)->withSpecification(new AgeAboveSpecification(28));
+        $second = $first->withSpecification(new NameEqualsSpecification('Alice'), true);
         $undone = $second->withoutSpecification(true);
 
         self::assertSame([1, 3, 4], $this->ids($undone));
@@ -479,7 +479,7 @@ final class SpecificationTest extends TestCase
         /** @var DataSource<PersonFixture> $ds */
         $ds       = new DataSource($this->people());
         $inverted = (new AgeAboveSpecification(28))->invert();
-        $filtered = $ds->withSpecification($inverted);
+        $filtered = $ds->withLimit(100)->withSpecification($inverted);
 
         self::assertSame([2, 5], $this->ids($filtered));
     }
@@ -488,7 +488,7 @@ final class SpecificationTest extends TestCase
     {
         /** @var DataSource<PersonFixture> $ds */
         $ds       = new DataSource($this->people());
-        $filtered = $ds->withSpecification(new NameEqualsSpecification('Carol'));
+        $filtered = $ds->withLimit(100)->withSpecification(new NameEqualsSpecification('Carol'));
 
         self::assertSame([3], $this->ids($filtered));
     }
@@ -511,23 +511,16 @@ final class SpecificationTest extends TestCase
         $ds->withPagination(1, 2)->withSpecification(new AgeAboveSpecification(28));
     }
 
-    public function testSpecWithPaginationThrowsAtIterationTime(): void
+    public function testSpecWithoutLimitThrowsAtIterationTime(): void
     {
         /** @var DataSource<PersonFixture> $ds */
         $ds = new DataSource($this->people());
 
-        $spec     = new AgeAboveSpecification(28);
-        $withSpec = $ds->withSpecification($spec);
-
-        // Bypass the composition guard by injecting pagination directly into the clone
-        // to verify the data-access guard also works.
-        $reflection = new ReflectionProperty($withSpec, 'pagination');
-        $reflection->setAccessible(true);
-        $clone = clone $withSpec;
-        $reflection->setValue($clone, [1, 2]);
+        // withSpecification without withLimit — iteration must throw.
+        $withSpec = $ds->withSpecification(new AgeAboveSpecification(28));
 
         $this->expectException(LogicException::class);
-        iterator_to_array($clone->getIterator());
+        iterator_to_array($withSpec->getIterator());
     }
 
     public function testCompositeAndSpecificationViaAndMethodFiltersCorrectly(): void
@@ -535,7 +528,7 @@ final class SpecificationTest extends TestCase
         /** @var DataSource<PersonFixture> $ds */
         $ds       = new DataSource($this->people());
         $spec     = (new AgeAboveSpecification(28))->and(new NameEqualsSpecification('Carol'));
-        $filtered = $ds->withSpecification($spec);
+        $filtered = $ds->withLimit(100)->withSpecification($spec);
 
         self::assertSame([3], $this->ids($filtered));
     }
@@ -545,7 +538,7 @@ final class SpecificationTest extends TestCase
         /** @var DataSource<PersonFixture> $ds */
         $ds       = new DataSource($this->people());
         $spec     = (new AgeAboveSpecification(38))->or(new NameEqualsSpecification('Alice'));
-        $filtered = $ds->withSpecification($spec);
+        $filtered = $ds->withLimit(100)->withSpecification($spec);
 
         self::assertSame([1, 3], $this->ids($filtered));
     }
@@ -557,7 +550,7 @@ final class SpecificationTest extends TestCase
 
         $qry      = $ds->qry();
         $qry      = $qry->andWhere($qry->expr()->greaterThan('age', 24));
-        $filtered = $ds->withQueryExpression($qry)->withSpecification(new NameEqualsSpecification('Alice'));
+        $filtered = $ds->withLimit(100)->withQueryExpression($qry)->withSpecification(new NameEqualsSpecification('Alice'));
 
         self::assertSame([1], $this->ids($filtered));
     }
@@ -569,7 +562,7 @@ final class SpecificationTest extends TestCase
 
         $qry      = $ds->qry();
         $qry      = $qry->andWhere($qry->expr()->greaterThan('age', 24));
-        $filtered = $ds->withSpecification(new AgeAboveSpecification(28))->withQueryExpression($qry);
+        $filtered = $ds->withLimit(100)->withSpecification(new AgeAboveSpecification(28))->withQueryExpression($qry, true);
 
         // spec QE (age > 28) runs first, then regular QE (age > 24) — result is age > 28
         self::assertSame([1, 3, 4], $this->ids($filtered));
@@ -587,7 +580,7 @@ final class SpecificationTest extends TestCase
 
         /** @var DataSource<PersonFixture> $ds */
         $ds       = new DataSource($paginator);
-        $filtered = $ds->withSpecification(new AgeAboveSpecification(28));
+        $filtered = $ds->withLimit(100)->withSpecification(new AgeAboveSpecification(28));
 
         // Iteration is the only allowed data-access method when specs are set.
         self::assertSame([1, 3, 4], $this->ids($filtered));

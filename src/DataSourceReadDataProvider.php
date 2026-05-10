@@ -16,9 +16,6 @@ use Traversable;
 /** @phpstan-template-covariant T of object|array<string, mixed> */
 trait DataSourceReadDataProvider
 {
-    /** @use ReadDataProviderAccess<T> */
-    use ReadDataProviderAccess;
-
     /** @phpstan-var ReadDataProviderInterface<T>|null */
     private ReadDataProviderInterface|null $dataSource = null;
 
@@ -94,6 +91,12 @@ trait DataSourceReadDataProvider
     public function getResult(): array|ReadResponse
     {
         return $this->dataSource()->getResult();
+    }
+
+    #[Override]
+    public function specificationsIterator(array $specifications, int|null $limit = null, int $offset = 0, int|null $batchSize = null): Traversable
+    {
+        return $this->dataSource()->specificationsIterator($specifications, $limit, $offset, $batchSize);
     }
 
     #[Override]
@@ -178,6 +181,12 @@ trait DataSourceReadDataProvider
         $clone->dataSource = $clone->dataSource()->withoutQueryModifier($undo);
 
         return $clone;
+    }
+
+    #[Override]
+    public function specifications(): array
+    {
+        return $this->dataSource()->specifications();
     }
 
     #[Override]

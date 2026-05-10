@@ -79,7 +79,7 @@ interface ReadDataProviderCompositionInterface
     /**
      * Get list of the currently applied query expressions
      *
-     * @return QueryExpression[]
+     * @phpstan-return QueryExpression[]
      */
     public function queryExpressions(): array;
 
@@ -122,6 +122,13 @@ interface ReadDataProviderCompositionInterface
      * @phpstan-return static<T>
      */
     public function withoutQueryModifier(bool $undo = false): static;
+
+    /**
+     * Get list of the currently applied specifications
+     *
+     * @phpstan-return SpecificationInterface<covariant T>[]
+     */
+    public function specifications(): array;
 
     /**
      * Apply a specification for filtering.

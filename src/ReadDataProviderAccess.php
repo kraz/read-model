@@ -6,6 +6,9 @@ namespace Kraz\ReadModel;
 
 use InvalidArgumentException;
 use Kraz\ReadModel\Exception\MissingValuesException;
+use Kraz\ReadModel\Query\QueryExpression;
+use Kraz\ReadModel\Tools\CollectionUtils;
+use LogicException;
 use Override;
 use Traversable;
 
@@ -13,6 +16,7 @@ use function array_column;
 use function array_diff;
 use function array_values;
 use function count;
+use function iterator_to_array;
 use function max;
 use function sprintf;
 
@@ -93,16 +97,71 @@ trait ReadDataProviderAccess
         }
     }
 
-    /**
-     * @phpstan-param T[] $data
-     * @phpstan-param list<int|string> $values
-     */
-    private function assertAllValuesFound(array $data, array $values, string $indexField): void
+    #[Override]
+    public function isEmpty(): bool
     {
-        $found         = array_column($data, $indexField);
-        $missingValues = array_values(array_diff($values, $found));
-        if (count($missingValues) > 0) {
-            throw new MissingValuesException($missingValues, $data);
+        return $this->totalCount() === 0;
+    }
+
+    #[Override]
+    public function data(): array
+    {
+        $data = iterator_to_array($this->getIterator());
+        if ($this->isValue()) {
+            $rootIdentifier = $this->getOrCreateQueryExpressionProvider()->requireSingleRootIdentifier();
+            $values         = $this->collectInputValues();
+            $found          = array_column($data, $rootIdentifier);
+            $missingValues  = array_values(array_diff($values, $found));
+            if (count($missingValues) > 0) {
+                throw new MissingValuesException($missingValues, $data);
+            }
+
+            return CollectionUtils::sortByIndex($data, $rootIdentifier, $values);
+        }
+
+        return $data;
+    }
+
+    #[Override]
+    public function getResult(): array|ReadResponse
+    {
+        $data = $this->data();
+
+        if ($this->isValue()) {
+            return $data;
+        }
+
+        $page  = $this->isPaginated() ? ($this->paginator()?->getCurrentPage() ?? 1) : 1;
+        $total = $this->totalCount();
+
+        /** @phpstan-var ReadResponse<T> $result */
+        $result = ReadResponse::create($data, $page, $total);
+
+        return $result;
+    }
+
+    protected function getWrappedQueryExpression(): QueryExpression|null
+    {
+        if (count($this->queryExpressions()) === 0) {
+            return null;
+        }
+
+        if (count($this->queryExpressions()) === 1) {
+            return clone $this->queryExpressions()[0];
+        }
+
+        $base = QueryExpression::create();
+        foreach ($this->queryExpressions() as $item) {
+            $base = $base->wrap($item);
+        }
+
+        return $base;
+    }
+
+    private function assertNoSpecifications(): void
+    {
+        if (count($this->specifications()) > 0) {
+            throw new LogicException('Cannot use this method when specifications are set. Use getIterator() or data() instead.');
         }
     }
 }

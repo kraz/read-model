@@ -13,7 +13,6 @@ use Kraz\ReadModel\Query\QueryExpression;
 use Kraz\ReadModel\Query\QueryExpressionProvider;
 use Kraz\ReadModel\Query\QueryExpressionProviderInterface;
 use Kraz\ReadModel\Specification\SpecificationInterface;
-use Kraz\ReadModel\Tools\CollectionUtils;
 use Kraz\ReadModel\Tools\TraversableTransformer;
 use LogicException;
 use Override;
@@ -68,8 +67,8 @@ class DataSource implements ReadDataProviderInterface
     {
         $hasSpecs = count($this->specifications) > 0;
 
-        if ($hasSpecs && $this->pagination !== null) {
-            throw new LogicException('Cannot use pagination when specifications are set.');
+        if ($hasSpecs && $this->limit === null) {
+            throw new LogicException('Specifications can only be used with a limit. Call withLimit() before using withSpecification().');
         }
 
         $paginator = $hasSpecs ? null : $this->paginator();
@@ -98,14 +97,6 @@ class DataSource implements ReadDataProviderInterface
     }
 
     #[Override]
-    public function isEmpty(): bool
-    {
-        $this->assertNoSpecifications();
-
-        return $this->totalCount() === 0;
-    }
-
-    #[Override]
     public function count(): int
     {
         $this->assertNoSpecifications();
@@ -128,42 +119,7 @@ class DataSource implements ReadDataProviderInterface
             return $paginator->getTotalItems();
         }
 
-        return count($this->filteredItems());
-    }
-
-    #[Override]
-    public function data(): array
-    {
-        $data = iterator_to_array($this->getIterator());
-        if ($this->isValue()) {
-            $rootIdentifier = $this->getOrCreateQueryExpressionProvider()->requireSingleRootIdentifier();
-            $values         = $this->collectInputValues();
-            $this->assertAllValuesFound($data, $values, $rootIdentifier);
-
-            return CollectionUtils::sortByIndex($data, $rootIdentifier, $values);
-        }
-
-        return $data;
-    }
-
-    #[Override]
-    public function getResult(): array|ReadResponse
-    {
-        $this->assertNoSpecifications();
-
-        $data = $this->data();
-
-        if ($this->isValue()) {
-            return $data;
-        }
-
-        $page  = $this->isPaginated() ? ($this->paginator()?->getCurrentPage() ?? 1) : 1;
-        $total = $this->totalCount();
-
-        /** @phpstan-var ReadResponse<T> $result */
-        $result = ReadResponse::create($data, $page, $total);
-
-        return $result;
+        return count($this->filteredItems(false));
     }
 
     /** @phpstan-return PaginatorInterface<T>|null */
@@ -203,13 +159,6 @@ class DataSource implements ReadDataProviderInterface
         return null;
     }
 
-    private function assertNoSpecifications(): void
-    {
-        if (count($this->specifications) > 0) {
-            throw new LogicException('Cannot use this method when specifications are set. Use getIterator() or data() instead.');
-        }
-    }
-
     #[Override]
     public function handleRequest(object $request, array $fieldsOperator = [], array $fieldsIgnoreCase = []): static
     {
@@ -217,7 +166,7 @@ class DataSource implements ReadDataProviderInterface
     }
 
     /** @phpstan-return list<T> */
-    private function filteredItems(): array
+    private function filteredItems(bool $applyLimit = true): array
     {
         $specQEs = [];
         foreach ($this->specifications as $specification) {
@@ -340,7 +289,7 @@ class DataSource implements ReadDataProviderInterface
         /** @phpstan-var list<T> $values */
         $values = array_values($items);
 
-        if ($this->limit !== null) {
+        if ($applyLimit && $this->limit !== null) {
             [$limitValue, $offsetValue] = $this->limit;
             /** @phpstan-var list<T> $values */
             $values = array_values(array_slice($values, $offsetValue ?? 0, $limitValue));
