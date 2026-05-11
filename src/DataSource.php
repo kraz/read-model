@@ -37,6 +37,9 @@ class DataSource implements ReadDataProviderInterface
     /** @use ReadDataProviderAccess<T> */
     use ReadDataProviderAccess;
 
+    /** @phpstan-var PaginatorInterface<T>|null */
+    private PaginatorInterface|null $paginator = null;
+
     /** @phpstan-param ReadDataProviderInterface<T>|PaginatorInterface<T>|IteratorAggregate<array-key, T>|iterable<T>|null $data */
     public function __construct(
         private ReadDataProviderInterface|PaginatorInterface|IteratorAggregate|iterable|null $data,
@@ -128,12 +131,18 @@ class DataSource implements ReadDataProviderInterface
     {
         $this->assertNoSpecifications();
 
+        if ($this->paginator) {
+            return $this->paginator;
+        }
+
         if ($this->pagination !== null) {
             $items                 = $this->filteredItems();
             [$page, $itemsPerPage] = $this->pagination;
 
             /** @phpstan-var PaginatorInterface<T> $paginator */
             $paginator = new InMemoryPaginator(new ArrayIterator($items), count($items), $page, $itemsPerPage);
+
+            $this->paginator = $paginator;
 
             return $paginator;
         }
@@ -146,12 +155,16 @@ class DataSource implements ReadDataProviderInterface
             /** @phpstan-var PaginatorInterface<T> $paginator */
             $paginator = $this->data;
 
+            $this->paginator = $paginator;
+
             return $paginator;
         }
 
         if ($this->data instanceof ReadDataProviderInterface) {
             /** @phpstan-var PaginatorInterface<T>|null $paginator */
             $paginator = $this->data->paginator();
+
+            $this->paginator = $paginator;
 
             return $paginator;
         }
@@ -296,5 +309,10 @@ class DataSource implements ReadDataProviderInterface
         }
 
         return $values;
+    }
+
+    public function __clone()
+    {
+        $this->paginator = null;
     }
 }
