@@ -113,7 +113,23 @@ trait ReadDataProviderAccess
             $found          = array_column($data, $rootIdentifier);
             $missingValues  = array_values(array_diff($values, $found));
             if (count($missingValues) > 0) {
-                throw new MissingValuesException($missingValues, $data);
+                if ($this->pagination === null && $this->limit === null) {
+                    throw new MissingValuesException($missingValues, $data);
+                }
+
+                if ($this->pagination !== null) {
+                    [$page, $itemsPerPage] = $this->pagination;
+                    if ($itemsPerPage > count($values) && $page === 1) {
+                        throw new MissingValuesException($missingValues, $data);
+                    }
+                }
+
+                if ($this->limit !== null) {
+                    [$limitValue, $offsetValue] = $this->limit;
+                    if ($limitValue > count($values) && ($offsetValue === null || $offsetValue === 0)) {
+                        throw new MissingValuesException($missingValues, $data);
+                    }
+                }
             }
 
             return CollectionUtils::sortByIndex($data, $rootIdentifier, $values);

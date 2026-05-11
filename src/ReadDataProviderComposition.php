@@ -16,7 +16,6 @@ use Override;
 use ReflectionClassConstant;
 use ReflectionObject;
 
-use function array_any;
 use function array_filter;
 use function array_flip;
 use function array_intersect_key;
@@ -150,7 +149,7 @@ trait ReadDataProviderComposition
     #[Override]
     final public function isValue(): bool
     {
-        return array_any($this->queryExpressions, static fn (QueryExpression $queryExpression) => count($queryExpression->getValues() ?? []) > 0);
+        return count($this->collectInputValues()) > 0;
     }
 
     #[Override]

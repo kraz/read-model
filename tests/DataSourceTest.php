@@ -1403,6 +1403,110 @@ final class DataSourceTest extends TestCase
         }
     }
 
+    public function testMissingValuesNotThrownWhenPaginationPageBeyondFirst(): void
+    {
+        $provider = new QueryExpressionProvider(new ReadModelDescriptorFactory());
+        $provider->setRootIdentifier('id');
+
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->people());
+        $ds = $ds->withQueryExpressionProvider($provider);
+
+        // page=2 with itemsPerPage>count(values): missing values may live elsewhere → no throw
+        $result = $ds
+            ->withQueryExpression(QueryExpression::create()->withValues([1, 99]))
+            ->withPagination(2, 10)
+            ->data();
+
+        self::assertSame([], $result);
+    }
+
+    public function testMissingValuesNotThrownWhenPaginationItemsPerPageBelowValues(): void
+    {
+        $provider = new QueryExpressionProvider(new ReadModelDescriptorFactory());
+        $provider->setRootIdentifier('id');
+
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->people());
+        $ds = $ds->withQueryExpressionProvider($provider);
+
+        // itemsPerPage(2) <= count(values)(3): page cannot fit them all → no throw
+        $result = $ds
+            ->withQueryExpression(QueryExpression::create()->withValues([1, 2, 99]))
+            ->withPagination(1, 2)
+            ->data();
+
+        self::assertSame([1, 2], $this->ids($result));
+    }
+
+    public function testMissingValuesStillThrownOnFirstPageWhenItemsPerPageCoversValues(): void
+    {
+        $provider = new QueryExpressionProvider(new ReadModelDescriptorFactory());
+        $provider->setRootIdentifier('id');
+
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->people());
+        $ds = $ds->withQueryExpressionProvider($provider);
+
+        $this->expectException(MissingValuesException::class);
+        $ds
+            ->withQueryExpression(QueryExpression::create()->withValues([1, 99]))
+            ->withPagination(1, 10)
+            ->data();
+    }
+
+    public function testMissingValuesNotThrownWhenLimitOffsetIsPositive(): void
+    {
+        $provider = new QueryExpressionProvider(new ReadModelDescriptorFactory());
+        $provider->setRootIdentifier('id');
+
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->people());
+        $ds = $ds->withQueryExpressionProvider($provider);
+
+        // offset>0: missing values may live before/after window → no throw
+        $result = $ds
+            ->withQueryExpression(QueryExpression::create()->withValues([1, 99]))
+            ->withLimit(10, 1)
+            ->data();
+
+        self::assertIsArray($result);
+    }
+
+    public function testMissingValuesNotThrownWhenLimitBelowValues(): void
+    {
+        $provider = new QueryExpressionProvider(new ReadModelDescriptorFactory());
+        $provider->setRootIdentifier('id');
+
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->people());
+        $ds = $ds->withQueryExpressionProvider($provider);
+
+        // limit(2) <= count(values)(3): window cannot fit them all → no throw
+        $result = $ds
+            ->withQueryExpression(QueryExpression::create()->withValues([1, 2, 99]))
+            ->withLimit(2)
+            ->data();
+
+        self::assertSame([1, 2], $this->ids($result));
+    }
+
+    public function testMissingValuesStillThrownWhenLimitCoversValuesAndOffsetIsNullOrZero(): void
+    {
+        $provider = new QueryExpressionProvider(new ReadModelDescriptorFactory());
+        $provider->setRootIdentifier('id');
+
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->people());
+        $ds = $ds->withQueryExpressionProvider($provider);
+
+        $this->expectException(MissingValuesException::class);
+        $ds
+            ->withQueryExpression(QueryExpression::create()->withValues([1, 99]))
+            ->withLimit(10, 0)
+            ->data();
+    }
+
     // ------------------------------------------------------------------
     // Immutability
     // ------------------------------------------------------------------
