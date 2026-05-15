@@ -26,6 +26,8 @@ use function json_encode;
  *      itemsPerPage?: int|null,
  *      limit?: int<0, max>|null,
  *      offset?: int<0, max>|null,
+ *      cursor?: string|null,
+ *      cursorLimit?: int<0, max>|null,
  *  }
  */
 final class QueryRequest implements JsonSerializable, Stringable
@@ -40,6 +42,9 @@ final class QueryRequest implements JsonSerializable, Stringable
         private int|null $limit = null,
         /** @phpstan-var int<0, max>|null */
         private int|null $offset = null,
+        private string|null $cursor = null,
+        /** @phpstan-var int<0, max>|null */
+        private int|null $cursorLimit = null,
     ) {
         if ($page !== null && $page <= 0) {
             throw new InvalidArgumentException('Expected a positive integer.');
@@ -54,6 +59,14 @@ final class QueryRequest implements JsonSerializable, Stringable
         }
 
         if ($offset !== null && $offset < 0) {
+            throw new InvalidArgumentException('Expected a positive integer.');
+        }
+
+        if ($cursor !== null && $cursor === '') {
+            throw new InvalidArgumentException('Cursor token cannot be an empty string.');
+        }
+
+        if ($cursorLimit !== null && $cursorLimit <= 0) {
             throw new InvalidArgumentException('Expected a positive integer.');
         }
     }
@@ -87,6 +100,17 @@ final class QueryRequest implements JsonSerializable, Stringable
         return $this->offset;
     }
 
+    public function getCursor(): string|null
+    {
+        return $this->cursor;
+    }
+
+    /** @phpstan-return int<0, max>|null */
+    public function getCursorLimit(): int|null
+    {
+        return $this->cursorLimit;
+    }
+
     public function isEmpty(): bool
     {
         if ($this->query !== null && ! $this->query->isEmpty()) {
@@ -105,7 +129,15 @@ final class QueryRequest implements JsonSerializable, Stringable
             return false;
         }
 
-        return $this->offset === null || $this->offset < 0;
+        if ($this->offset !== null && $this->offset >= 0) {
+            return false;
+        }
+
+        if ($this->cursor !== null && $this->cursor !== '') {
+            return false;
+        }
+
+        return $this->cursorLimit === null || $this->cursorLimit <= 0;
     }
 
     /**
@@ -133,6 +165,8 @@ final class QueryRequest implements JsonSerializable, Stringable
             'itemsPerPage' => $this->itemsPerPage !== null && $this->itemsPerPage !== 0 ? $this->itemsPerPage : null,
             'limit' => $this->limit !== null && $this->limit > 0 ? $this->limit : null,
             'offset' => $this->offset !== null && $this->offset >= 0 ? $this->offset : null,
+            'cursor' => $this->cursor !== null && $this->cursor !== '' ? $this->cursor : null,
+            'cursorLimit' => $this->cursorLimit !== null && $this->cursorLimit > 0 ? $this->cursorLimit : null,
         ], static fn (mixed $v): bool => $v !== null && $v !== []);
     }
 
@@ -194,6 +228,9 @@ final class QueryRequest implements JsonSerializable, Stringable
         $clone               = clone $this;
         $clone->page         = $page;
         $clone->itemsPerPage = $itemsPerPage;
+        // Page-based pagination is mutually exclusive with cursor mode.
+        $clone->cursor      = null;
+        $clone->cursorLimit = null;
 
         return $clone;
     }
@@ -224,6 +261,9 @@ final class QueryRequest implements JsonSerializable, Stringable
         $clone         = clone $this;
         $clone->limit  = $limit;
         $clone->offset = $offset;
+        // Limit/offset mode is mutually exclusive with cursor mode.
+        $clone->cursor      = null;
+        $clone->cursorLimit = null;
 
         return $clone;
     }
@@ -233,6 +273,38 @@ final class QueryRequest implements JsonSerializable, Stringable
         $clone         = clone $this;
         $clone->limit  = null;
         $clone->offset = null;
+
+        return $clone;
+    }
+
+    /** @phpstan-param int<0, max> $limit */
+    public function withCursor(string|null $cursor, int $limit): self
+    {
+        if ($cursor === '') {
+            throw new InvalidArgumentException('Cursor token cannot be an empty string. Pass null for the first page.');
+        }
+
+        if ($limit <= 0) {
+            throw new InvalidArgumentException('Expected a positive integer.');
+        }
+
+        $clone              = clone $this;
+        $clone->cursor      = $cursor;
+        $clone->cursorLimit = $limit;
+        // Cursor mode is mutually exclusive with the existing offset/page modes.
+        $clone->page         = null;
+        $clone->itemsPerPage = null;
+        $clone->limit        = null;
+        $clone->offset       = null;
+
+        return $clone;
+    }
+
+    public function withoutCursor(): self
+    {
+        $clone              = clone $this;
+        $clone->cursor      = null;
+        $clone->cursorLimit = null;
 
         return $clone;
     }
@@ -250,6 +322,8 @@ final class QueryRequest implements JsonSerializable, Stringable
      *     itemsPerPage?: int<0, max>|null,
      *     limit?: int<0, max>|null,
      *     offset?: int<0, max>|null,
+     *     cursor?: string|null,
+     *     cursorLimit?: int<0, max>|null,
      * } $data
      */
     public function __unserialize(array $data): void
@@ -262,6 +336,9 @@ final class QueryRequest implements JsonSerializable, Stringable
 
         $limit  = $data['limit'] ?? null;
         $offset = $data['offset'] ?? null;
+
+        $cursor      = $data['cursor'] ?? null;
+        $cursorLimit = $data['cursorLimit'] ?? null;
 
         if ($page !== null && $page <= 0) {
             throw new InvalidArgumentException('Expected a positive integer.');
@@ -279,10 +356,20 @@ final class QueryRequest implements JsonSerializable, Stringable
             throw new InvalidArgumentException('Expected a positive integer.');
         }
 
+        if ($cursor !== null && $cursor === '') {
+            throw new InvalidArgumentException('Cursor token cannot be an empty string.');
+        }
+
+        if ($cursorLimit !== null && $cursorLimit <= 0) {
+            throw new InvalidArgumentException('Expected a positive integer.');
+        }
+
         $this->page         = $page;
         $this->itemsPerPage = $itemsPerPage;
         $this->limit        = $limit;
         $this->offset       = $offset;
+        $this->cursor       = $cursor;
+        $this->cursorLimit  = $cursorLimit;
     }
 
     public function __clone()
@@ -342,6 +429,18 @@ final class QueryRequest implements JsonSerializable, Stringable
             throw new InvalidArgumentException('Expected null or an integer.');
         }
 
-        return new self($query, $page, $itemsPerPage, $limit, $offset);
+        /** @phpstan-var string|null $cursor */
+        $cursor = $request['cursor'] ?? null;
+        if ($cursor !== null && ! is_string($cursor)) {
+            throw new InvalidArgumentException('Expected null or a string.');
+        }
+
+        /** @phpstan-var int<0, max>|null $cursorLimit */
+        $cursorLimit = $request['cursorLimit'] ?? null;
+        if ($cursorLimit !== null && ! is_int($cursorLimit)) {
+            throw new InvalidArgumentException('Expected null or an integer.');
+        }
+
+        return new self($query, $page, $itemsPerPage, $limit, $offset, $cursor, $cursorLimit);
     }
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kraz\ReadModel\Query;
 
+use Kraz\ReadModel\Collections\ArrayCollection;
 use Kraz\ReadModel\Collections\Selectable;
 use Kraz\ReadModel\ReadModelDescriptor;
 use Kraz\ReadModel\ReadModelDescriptorFactoryInterface;
@@ -78,6 +79,18 @@ class QueryExpressionProvider implements QueryExpressionProviderInterface
     }
 
     /**
+     * @phpstan-param Selectable<array-key, T>|null $data
+     * @phpstan-param QueryExpressionHelperOptions $options
+     *
+     * @phpstan-template T
+     */
+    #[Override]
+    public function mapField(string $field, mixed $data = null, ReadModelDescriptor|null $descriptor = null, array $options = []): string
+    {
+        return $this->createHelper($data ?? new ArrayCollection(), $descriptor, $options)->mapField($field);
+    }
+
+    /**
      * @phpstan-param Selectable<array-key, T> $data
      * @phpstan-param QueryExpressionHelperOptions $options
      *
@@ -87,6 +100,19 @@ class QueryExpressionProvider implements QueryExpressionProviderInterface
      */
     #[Override]
     public function apply(mixed $data, QueryExpression $queryExpression, ReadModelDescriptor|null $descriptor = null, array $options = [], int $includeData = self::INCLUDE_DATA_ALL): Selectable
+    {
+        return $this->createHelper($data, $descriptor, $options)->apply($queryExpression, $includeData);
+    }
+
+    /**
+     * @phpstan-param Selectable<array-key, T> $data
+     * @phpstan-param QueryExpressionHelperOptions $options
+     *
+     * @phpstan-return QueryExpressionHelper<T>
+     *
+     * @phpstan-template T
+     */
+    private function createHelper(mixed $data, ReadModelDescriptor|null $descriptor = null, array $options = []): QueryExpressionHelper
     {
         /** @phpstan-var ReadModelDescriptor|class-string|null $optDescriptor */
         $optDescriptor = $options['read_model_descriptor'] ?? null;
@@ -112,6 +138,6 @@ class QueryExpressionProvider implements QueryExpressionProviderInterface
             $options['root_identifier'] = $rootIdentifier;
         }
 
-        return QueryExpressionHelper::create($data, $descriptor, $options)->apply($queryExpression, $includeData);
+        return QueryExpressionHelper::create($data, $descriptor, $options);
     }
 }

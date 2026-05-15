@@ -113,7 +113,7 @@ trait ReadDataProviderAccess
             $found          = array_column($data, $rootIdentifier);
             $missingValues  = array_values(array_diff($values, $found));
             if (count($missingValues) > 0) {
-                if ($this->pagination === null && $this->limit === null) {
+                if ($this->pagination === null && $this->limit === null && $this->cursor === null) {
                     throw new MissingValuesException($missingValues, $data);
                 }
 
@@ -139,12 +139,29 @@ trait ReadDataProviderAccess
     }
 
     #[Override]
-    public function getResult(): array|ReadResponse
+    public function getResult(): array|ReadResponse|CursorReadResponse
     {
         $data = $this->data();
 
         if ($this->isValue()) {
             return $data;
+        }
+
+        if ($this->isCursored()) {
+            $cursorPaginator = $this->cursorPaginator();
+            if ($cursorPaginator !== null) {
+                /** @phpstan-var CursorReadResponse<T> $cursorResult */
+                $cursorResult = CursorReadResponse::create(
+                    $data,
+                    $cursorPaginator->getNextCursor(),
+                    $cursorPaginator->getPreviousCursor(),
+                    $cursorPaginator->hasNext(),
+                    $cursorPaginator->hasPrevious(),
+                    $cursorPaginator->getTotalItems(),
+                );
+
+                return $cursorResult;
+            }
         }
 
         $page  = $this->isPaginated() ? ($this->paginator()?->getCurrentPage() ?? 1) : 1;

@@ -43,6 +43,14 @@ interface QueryExpressionProviderInterface
      * @phpstan-param ExpectedType $data
      * @phpstan-param array<string, mixed> $options
      *
+     * @phpstan-template ExpectedType of object|array<string, mixed>|list<array<string, mixed>>|null
+     */
+    public function mapField(string $field, mixed $data = null, ReadModelDescriptor|null $descriptor = null, array $options = []): string;
+
+    /**
+     * @phpstan-param ExpectedType $data
+     * @phpstan-param array<string, mixed> $options
+     *
      * @phpstan-return ExpectedType
      *
      * @phpstan-template ExpectedType of object|array<string, mixed>|list<array<string, mixed>>

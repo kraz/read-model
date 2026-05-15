@@ -8,6 +8,7 @@ use ArrayIterator;
 use ArrayObject;
 use InvalidArgumentException;
 use Kraz\ReadModel\Collections\ArrayCollection;
+use Kraz\ReadModel\CursorReadResponse;
 use Kraz\ReadModel\DataSource;
 use Kraz\ReadModel\Exception\MissingValuesException;
 use Kraz\ReadModel\Pagination\InMemoryPaginator;
@@ -1529,5 +1530,182 @@ final class DataSourceTest extends TestCase
 
         self::assertSame([1, 4], $this->ids($branchB));
         self::assertSame([1, 2, 3, 4, 5], $this->ids($branchA));
+    }
+
+    // ------------------------------------------------------------------
+    // Cursor pagination
+    // ------------------------------------------------------------------
+
+    /**
+     * Null cursor token represents "first page" in the new API — see
+     * {@see \Kraz\ReadModel\ReadDataProviderCompositionInterface::withCursor()}.
+     */
+    private function initialCursor(): null
+    {
+        return null;
+    }
+
+    public function testCursorPaginatorReturnsFirstWindow(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->peopleArray());
+
+        $first     = $ds->withCursor($this->initialCursor(), 2);
+        $paginator = $first->cursorPaginator();
+
+        self::assertNotNull($paginator);
+        self::assertTrue($first->isCursored());
+        self::assertFalse($first->isPaginated());
+        self::assertNull($first->paginator());
+        self::assertSame([1, 2], $this->ids($paginator->getIterator()));
+        self::assertTrue($paginator->hasNext());
+    }
+
+    public function testCursorPaginatorWalksForwardThroughAllPages(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->peopleArray());
+
+        $token = $this->initialCursor();
+        $pages = [];
+        for ($i = 0; $i < 5; $i++) {
+            $current   = $ds->withCursor($token, 2);
+            $paginator = $current->cursorPaginator();
+            self::assertNotNull($paginator);
+
+            $pages[] = $this->ids($paginator->getIterator());
+            $next    = $paginator->getNextCursor();
+            if ($next === null) {
+                break;
+            }
+
+            $token = $next;
+        }
+
+        self::assertSame([[1, 2], [3, 4], [5]], $pages);
+    }
+
+    public function testCursorPaginatorBackwardRestoresPreviousWindow(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->peopleArray());
+
+        $first = $ds->withCursor($this->initialCursor(), 2);
+        $next  = $first->cursorPaginator()?->getNextCursor();
+        self::assertNotNull($next);
+
+        $second = $ds->withCursor($next, 2);
+        $prev   = $second->cursorPaginator()?->getPreviousCursor();
+        self::assertNotNull($prev);
+
+        $back = $ds->withCursor($prev, 2);
+        /** @var iterable<PersonFixture> $iter */
+        $iter = $back->cursorPaginator()?->getIterator() ?? [];
+        self::assertSame([1, 2], $this->ids($iter));
+    }
+
+    public function testWithCursorClearsPaginationAndLimit(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->peopleArray());
+
+        $cursored = $ds->withPagination(1, 2)->withLimit(3, 1)->withCursor($this->initialCursor(), 2);
+
+        self::assertNull($cursored->paginator());
+        self::assertFalse($cursored->isPaginated());
+        self::assertTrue($cursored->isCursored());
+    }
+
+    public function testWithPaginationClearsCursor(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->peopleArray());
+
+        $back = $ds->withCursor($this->initialCursor(), 2)->withPagination(1, 2);
+
+        self::assertFalse($back->isCursored());
+        self::assertTrue($back->isPaginated());
+        self::assertNull($back->cursorPaginator());
+    }
+
+    public function testWithLimitClearsCursor(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->peopleArray());
+
+        $back = $ds->withCursor($this->initialCursor(), 2)->withLimit(3);
+
+        self::assertFalse($back->isCursored());
+        self::assertNull($back->cursorPaginator());
+    }
+
+    public function testCursorWithSpecificationsThrows(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->peopleArray());
+
+        $this->expectException(LogicException::class);
+        $ds->withSpecification(new AgeAboveSpecification(28))->withCursor($this->initialCursor(), 2);
+    }
+
+    public function testSpecificationWithCursorThrows(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->peopleArray());
+
+        $this->expectException(LogicException::class);
+        $ds->withCursor($this->initialCursor(), 2)->withSpecification(new AgeAboveSpecification(28));
+    }
+
+    public function testGetResultReturnsCursorReadResponse(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->peopleArray());
+
+        $result = $ds->withCursor($this->initialCursor(), 2)->getResult();
+
+        self::assertInstanceOf(CursorReadResponse::class, $result);
+        self::assertNotNull($result->nextCursor);
+        self::assertTrue($result->hasNext);
+        self::assertSame([1, 2], $this->ids($result->data ?? []));
+    }
+
+    public function testGetResultStillReturnsReadResponseForPageMode(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->peopleArray());
+
+        $result = $ds->withPagination(1, 2)->getResult();
+
+        self::assertInstanceOf(ReadResponse::class, $result);
+    }
+
+    public function testCursorPaginatorCacheIsClearedOnClone(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->peopleArray());
+
+        $first        = $ds->withCursor($this->initialCursor(), 2);
+        $cachedFirst  = $first->cursorPaginator();
+        $second       = $first->withCursor($this->initialCursor(), 3);
+        $cachedSecond = $second->cursorPaginator();
+
+        self::assertNotSame($cachedFirst, $cachedSecond);
+        self::assertSame(3, $cachedSecond?->getLimit());
+        self::assertSame(2, $cachedFirst?->getLimit());
+    }
+
+    public function testWithQueryRequestAppliesCursor(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds      = new DataSource($this->peopleArray());
+        $request = QueryRequest::create()->withCursor($this->initialCursor(), 2);
+
+        $applied = $ds->withQueryRequest($request);
+
+        self::assertTrue($applied->isCursored());
+        $paginator = $applied->cursorPaginator();
+        self::assertNotNull($paginator);
+        self::assertSame([1, 2], $this->ids($paginator->getIterator()));
     }
 }

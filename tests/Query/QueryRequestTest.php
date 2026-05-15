@@ -265,4 +265,117 @@ final class QueryRequestTest extends TestCase
     {
         self::assertSame('', (string) QueryRequest::create());
     }
+
+    // ------------------------------------------------------------------
+    // withCursor — happy path & validation
+    // ------------------------------------------------------------------
+
+    public function testWithCursorSetsTokenAndLimit(): void
+    {
+        $request = QueryRequest::create()->withCursor('abc', 25);
+
+        self::assertSame('abc', $request->getCursor());
+        self::assertSame(25, $request->getCursorLimit());
+        self::assertFalse($request->isEmpty());
+    }
+
+    public function testWithCursorRejectsEmptyToken(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        QueryRequest::create()->withCursor('', 10);
+    }
+
+    public function testWithCursorAcceptsNullTokenForFirstPage(): void
+    {
+        $request = QueryRequest::create()->withCursor(null, 10);
+
+        self::assertNull($request->getCursor());
+        self::assertSame(10, $request->getCursorLimit());
+        self::assertFalse($request->isEmpty());
+    }
+
+    public function testWithCursorRejectsZeroLimit(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        QueryRequest::create()->withCursor('abc', 0);
+    }
+
+    public function testWithCursorClearsPageBasedPagination(): void
+    {
+        $request = QueryRequest::create()->withPagination(2, 10)->withCursor('abc', 5);
+
+        self::assertNull($request->getPage());
+        self::assertNull($request->getItemsPerPage());
+        self::assertSame('abc', $request->getCursor());
+        self::assertSame(5, $request->getCursorLimit());
+    }
+
+    public function testWithCursorClearsLimitOffset(): void
+    {
+        $request = QueryRequest::create()->withLimit(10, 20)->withCursor('xyz', 7);
+
+        self::assertNull($request->getLimit());
+        self::assertNull($request->getOffset());
+        self::assertSame('xyz', $request->getCursor());
+        self::assertSame(7, $request->getCursorLimit());
+    }
+
+    public function testWithPaginationClearsCursor(): void
+    {
+        $request = QueryRequest::create()->withCursor('abc', 5)->withPagination(1, 10);
+
+        self::assertNull($request->getCursor());
+        self::assertNull($request->getCursorLimit());
+        self::assertSame(1, $request->getPage());
+        self::assertSame(10, $request->getItemsPerPage());
+    }
+
+    public function testWithLimitClearsCursor(): void
+    {
+        $request = QueryRequest::create()->withCursor('abc', 5)->withLimit(8);
+
+        self::assertNull($request->getCursor());
+        self::assertNull($request->getCursorLimit());
+        self::assertSame(8, $request->getLimit());
+    }
+
+    public function testWithoutCursorClearsCursorState(): void
+    {
+        $request = QueryRequest::create()->withCursor('abc', 5)->withoutCursor();
+
+        self::assertNull($request->getCursor());
+        self::assertNull($request->getCursorLimit());
+        self::assertTrue($request->isEmpty());
+    }
+
+    public function testCursorRoundTripsThroughCreateAndJson(): void
+    {
+        $request   = QueryRequest::create()->withCursor('token123', 12);
+        $roundtrip = QueryRequest::create((string) $request);
+
+        self::assertSame('token123', $roundtrip->getCursor());
+        self::assertSame(12, $roundtrip->getCursorLimit());
+    }
+
+    public function testCursorRoundTripsThroughSerialize(): void
+    {
+        $request  = QueryRequest::create()->withCursor('token456', 30);
+        $restored = unserialize(serialize($request));
+
+        assert($restored instanceof QueryRequest);
+        self::assertSame('token456', $restored->getCursor());
+        self::assertSame(30, $restored->getCursorLimit());
+    }
+
+    public function testCreateRejectsNonStringCursor(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        QueryRequest::create('{"cursor":123}');
+    }
+
+    public function testCreateRejectsNonIntegerCursorLimit(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        QueryRequest::create('{"cursor":"abc","cursorLimit":"5"}');
+    }
 }

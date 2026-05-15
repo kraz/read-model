@@ -6,6 +6,7 @@ namespace Kraz\ReadModel;
 
 use Countable;
 use IteratorAggregate;
+use Kraz\ReadModel\Pagination\Cursor\CursorPaginatorInterface;
 use Kraz\ReadModel\Pagination\PaginatorInterface;
 use Kraz\ReadModel\Specification\SpecificationInterface;
 use Traversable;
@@ -20,9 +21,17 @@ use Traversable;
 interface ReadDataProviderInterface extends ReadDataProviderCompositionInterface, IteratorAggregate, Countable
 {
     /**
-     * Check if the data is in pagination mode.
+     * Check if the data is in (offset/page-based) pagination mode.
+     *
+     * Stays scoped to offset/page semantics so existing callers that branch on it keep
+     * working. Use {@see self::isCursored()} for cursor mode.
      */
     public function isPaginated(): bool;
+
+    /**
+     * Check if the data is in cursor-based (keyset) pagination mode.
+     */
+    public function isCursored(): bool;
 
     /**
      * Check if there is any data available.
@@ -46,16 +55,26 @@ interface ReadDataProviderInterface extends ReadDataProviderCompositionInterface
     /**
      * Get structured data object, which is more convenient for transferring state.
      *
-     * @return T[]|ReadResponse<covariant T>
+     * In cursor mode the response is a {@see CursorReadResponse}; in offset/page mode
+     * it is a {@see ReadResponse}; for value queries it is a flat array.
+     *
+     * @return T[]|ReadResponse<covariant T>|CursorReadResponse<covariant T>
      */
-    public function getResult(): array|ReadResponse;
+    public function getResult(): array|ReadResponse|CursorReadResponse;
 
     /**
-     * Get instance of the paginator.
+     * Get instance of the (offset/page-based) paginator.
      *
      * @return PaginatorInterface<T>|null
      */
     public function paginator(): PaginatorInterface|null;
+
+    /**
+     * Get instance of the cursor-based paginator.
+     *
+     * @return CursorPaginatorInterface<T>|null
+     */
+    public function cursorPaginator(): CursorPaginatorInterface|null;
 
     /**
      * Get instance of the data iterator.

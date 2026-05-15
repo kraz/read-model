@@ -111,15 +111,7 @@ final class QueryExpressionHelper
             throw new RuntimeException('Missing filter filed');
         }
 
-        $fieldMap = $this->getFieldMap();
-        $field    = (string) $filter['field'];
-        $field    = $fieldMap[$field] ?? $field;
-        foreach ($this->getRootAliasList() as $rootAlias) {
-            if (str_starts_with($field, $rootAlias . '.')) {
-                $field = substr($field, strlen($rootAlias) + 1);
-                break;
-            }
-        }
+        $field = $this->mapField((string) $filter['field']);
 
         if (! isset($filter['operator'])) {
             throw new RuntimeException('Missing filter operator');
@@ -166,6 +158,20 @@ final class QueryExpressionHelper
             'notinlist' => $expr->notIn($fieldEx, is_string($paramValue) ? array_map('trim', explode(',', $paramValue)) : $paramValue, ! $ignoreCase),
             default => throw new RuntimeException(sprintf('Unsupported filter operator: "%s"', $operator)),
         };
+    }
+
+    public function mapField(string $field): string
+    {
+        $fieldMap = $this->getFieldMap();
+        $field    = $fieldMap[$field] ?? $field;
+        foreach ($this->getRootAliasList() as $rootAlias) {
+            if (str_starts_with($field, $rootAlias . '.')) {
+                $field = substr($field, strlen($rootAlias) + 1);
+                break;
+            }
+        }
+
+        return $field;
     }
 
     /** @phpstan-return Selectable<array-key, T> */

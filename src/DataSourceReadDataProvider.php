@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kraz\ReadModel;
 
+use Kraz\ReadModel\Pagination\Cursor\CursorPaginatorInterface;
 use Kraz\ReadModel\Pagination\PaginatorInterface;
 use Kraz\ReadModel\Query\FilterExpression;
 use Kraz\ReadModel\Query\QueryExpression;
@@ -67,6 +68,12 @@ trait DataSourceReadDataProvider
     }
 
     #[Override]
+    public function isCursored(): bool
+    {
+        return $this->dataSource()->isCursored();
+    }
+
+    #[Override]
     public function isEmpty(): bool
     {
         return $this->dataSource()->isEmpty();
@@ -91,7 +98,7 @@ trait DataSourceReadDataProvider
     }
 
     #[Override]
-    public function getResult(): array|ReadResponse
+    public function getResult(): array|ReadResponse|CursorReadResponse
     {
         return $this->dataSource()->getResult();
     }
@@ -106,6 +113,12 @@ trait DataSourceReadDataProvider
     public function paginator(): PaginatorInterface|null
     {
         return $this->dataSource()->paginator();
+    }
+
+    #[Override]
+    public function cursorPaginator(): CursorPaginatorInterface|null
+    {
+        return $this->dataSource()->cursorPaginator();
     }
 
     #[Override]
@@ -140,6 +153,24 @@ trait DataSourceReadDataProvider
     {
         $clone             = clone $this;
         $clone->dataSource = $clone->dataSource()->withoutLimit($undo);
+
+        return $clone;
+    }
+
+    #[Override]
+    public function withCursor(string|null $cursor, int $limit): static
+    {
+        $clone             = clone $this;
+        $clone->dataSource = $clone->dataSource()->withCursor($cursor, $limit);
+
+        return $clone;
+    }
+
+    #[Override]
+    public function withoutCursor(bool $undo = false): static
+    {
+        $clone             = clone $this;
+        $clone->dataSource = $clone->dataSource()->withoutCursor($undo);
 
         return $clone;
     }

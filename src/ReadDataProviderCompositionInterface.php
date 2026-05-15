@@ -77,6 +77,33 @@ interface ReadDataProviderCompositionInterface
     public function withoutLimit(bool $undo = false): static;
 
     /**
+     * Enable cursor-based (keyset) pagination.
+     *
+     * Pass `null` (or omit) for the first page when no cursor has yet been issued; pass
+     * the opaque token from a previous response's `nextCursor`/`previousCursor` for
+     * subsequent pages. `$limit` is the maximum number of items the next window should
+     * contain. Setting cursor mode clears any active page-based pagination and any
+     * active limit/offset. Cannot be combined with specifications (mirrors the existing
+     * page+spec restriction).
+     *
+     * @phpstan-param int<0, max> $limit
+     *
+     * @phpstan-return static<T>
+     */
+    public function withCursor(string|null $cursor, int $limit): static;
+
+    /**
+     * Remove cursor pagination state.
+     *
+     * When `$undo` is `TRUE` the cursor is reverted to the state before calling the last
+     * `withCursor`. When `$undo` is `FALSE` (the default behavior) it clears cursor state
+     * completely.
+     *
+     * @phpstan-return static<T>
+     */
+    public function withoutCursor(bool $undo = false): static;
+
+    /**
      * Get list of the currently applied query expressions
      *
      * @phpstan-return QueryExpression[]

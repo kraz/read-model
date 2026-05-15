@@ -52,6 +52,11 @@ trait ReadDataProviderComposition
     /** @phpstan-var array<int, array{int<0, max>, int<0, max>|null}|null> */
     private array $limitHistory = [];
 
+    /** @phpstan-var array{string|null, int<1, max>}|null */
+    private array|null $cursor = null;
+    /** @phpstan-var array<int, array{string|null, int<1, max>}|null> */
+    private array $cursorHistory = [];
+
     /** @phpstan-var QueryExpression[] */
     private array $queryExpressions = [];
     /** @phpstan-var array<int, QueryExpression[]> */
@@ -173,6 +178,8 @@ trait ReadDataProviderComposition
         $cloned->pagination          = [$page, $itemsPerPage];
         $cloned->limit               = null;
         $cloned->limitHistory        = [];
+        $cloned->cursor              = null;
+        $cloned->cursorHistory       = [];
 
         return $cloned;
     }
@@ -212,6 +219,8 @@ trait ReadDataProviderComposition
         $cloned->limit             = [$limit, $offset];
         $cloned->pagination        = null;
         $cloned->paginationHistory = [];
+        $cloned->cursor            = null;
+        $cloned->cursorHistory     = [];
 
         return $cloned;
     }
@@ -229,6 +238,54 @@ trait ReadDataProviderComposition
         } else {
             $cloned->limit        = null;
             $cloned->limitHistory = [];
+        }
+
+        return $cloned;
+    }
+
+    #[Override]
+    public function withCursor(string|null $cursor, int $limit): static
+    {
+        if (count($this->specifications) > 0) {
+            // specificationsIterator() uses limit/offset internally and would corrupt
+            // a cursor's window invariant by post-filtering rows; this mirrors the
+            // existing withPagination() guard.
+            throw new LogicException('Cannot use cursor pagination when specifications are set.');
+        }
+
+        if ($cursor === '') {
+            throw new InvalidArgumentException('Cursor token cannot be an empty string. Pass null for the first page.');
+        }
+
+        if ($limit <= 0) {
+            throw new InvalidArgumentException('Expected a positive integer.');
+        }
+
+        /** @phpstan-var static<T> $cloned */
+        $cloned                    = clone $this;
+        $cloned->cursorHistory[]   = $cloned->cursor;
+        $cloned->cursor            = [$cursor, $limit];
+        $cloned->pagination        = null;
+        $cloned->paginationHistory = [];
+        $cloned->limit             = null;
+        $cloned->limitHistory      = [];
+
+        return $cloned;
+    }
+
+    #[Override]
+    public function withoutCursor(bool $undo = false): static
+    {
+        /** @phpstan-var static<T> $cloned */
+        $cloned = clone $this;
+
+        if ($undo) {
+            $cloned->cursor = count($cloned->cursorHistory) > 0
+                ? array_pop($cloned->cursorHistory)
+                : null;
+        } else {
+            $cloned->cursor        = null;
+            $cloned->cursorHistory = [];
         }
 
         return $cloned;
@@ -310,6 +367,10 @@ trait ReadDataProviderComposition
     {
         if ($this->pagination !== null) {
             throw new LogicException('Cannot use specifications when pagination is set.');
+        }
+
+        if ($this->cursor !== null) {
+            throw new LogicException('Cannot use specifications when cursor pagination is set.');
         }
 
         /** @phpstan-var static<T> $cloned */
@@ -482,6 +543,11 @@ trait ReadDataProviderComposition
 
         if ($queryRequest->getLimit() !== null) {
             $cloned = $cloned->withLimit($queryRequest->getLimit(), $queryRequest->getOffset());
+        }
+
+        $cursorLimit = $queryRequest->getCursorLimit();
+        if ($cursorLimit !== null) {
+            $cloned = $cloned->withCursor($queryRequest->getCursor(), $cursorLimit);
         }
 
         return $cloned;
