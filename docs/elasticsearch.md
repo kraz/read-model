@@ -8,11 +8,7 @@ composer require kraz/read-model-elastic-search
 
 ## Client Library
 
-The `kraz/elastic-search-client` library provides a ready-to-use `ElasticSearchClientInterface` implementation that handles the HTTP transport and response parsing for Elasticsearch. It integrates directly with `kraz/read-model-elastic-search` — you only need to provide a configured instance and implement `ElasticSearchReadClientInterface` on top of it (or use `ElasticSearchClientGateway` as a base class) to wire up the `read()` method for your specific index.
-
-```bash
-composer require kraz/elastic-search-client
-```
+The Elasticsearch read model library comes with already available `kraz/elastic-search-client` library which provides a ready-to-use `ElasticSearchClientInterface` implementation that handles the HTTP transport and response parsing for Elasticsearch. It integrates directly with `kraz/read-model-elastic-search` — you only need to provide a configured instance and implement `ElasticSearchReadClientInterface` on top of it (or use `ElasticSearchClientGateway` as a base class) to wire up the `read()` method for your specific index.
 
 ## How It Works
 

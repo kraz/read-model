@@ -135,3 +135,114 @@ foreach ($readModel as $item) {
 ```
 
 When a limit is set, iteration stops automatically after that many items.
+
+## Cursor-Based (Keyset) Pagination
+
+Cursor pagination avoids the offset-drift problem of page-based pagination and scales efficiently on large, frequently-changing datasets. Instead of `page` + `itemsPerPage`, the client echoes back an opaque token that anchors the next or previous window.
+
+### Basic usage
+
+```php
+// First page — pass null for the cursor
+$result = $readModel->withCursor(cursor: null, limit: 20)->getResult();
+
+// $result is a CursorReadResponse
+$result->data;           // items on this window (up to 20)
+$result->nextCursor;     // opaque token — pass to next call, or null at end
+$result->previousCursor; // opaque token — pass to go back, or null at start
+$result->hasNext;        // bool
+$result->hasPrevious;    // bool
+$result->totalItems;     // int|null — null when the adapter did not compute a total
+
+// Next page
+$result2 = $readModel->withCursor(cursor: $result->nextCursor, limit: 20)->getResult();
+
+// Previous page
+$result0 = $readModel->withCursor(cursor: $result->previousCursor, limit: 20)->getResult();
+```
+
+`getResult()` returns a `CursorReadResponse` in cursor mode (instead of the usual `ReadResponse`). Both implement `ArrayAccess` so they serialise directly to JSON.
+
+### Checking cursor mode
+
+```php
+$readModel->isCursored(); // true when withCursor() is active
+```
+
+### The cursor paginator
+
+`cursorPaginator()` returns a `CursorPaginatorInterface` object with all the metadata:
+
+```php
+$paginator = $readModel->withCursor(null, 20)->cursorPaginator();
+
+$paginator->getLimit();          // 20
+$paginator->getDirection();      // Direction::FORWARD or Direction::BACKWARD
+$paginator->hasNext();           // bool
+$paginator->hasPrevious();       // bool
+$paginator->getNextCursor();     // string|null
+$paginator->getPreviousCursor(); // string|null
+$paginator->getTotalItems();     // int|null
+$paginator->count();             // items in the current window (NOT total)
+
+foreach ($paginator as $item) { /* ... */ }
+```
+
+### Disabling cursor pagination
+
+```php
+$readModel = $readModel->withoutCursor(); // clear completely
+
+// Or step back one level (mirrors withoutPagination undo: true)
+$readModel = $readModel->withoutCursor(undo: true);
+```
+
+### Mutual exclusivity
+
+Cursor mode and offset/page-based pagination are mutually exclusive. Calling `withCursor()` clears any active page or limit/offset state, and vice versa. Cursor mode also cannot be combined with specifications — the same restriction that applies to page-based pagination.
+
+### Cursor pagination in controllers
+
+```php
+// Symfony controller
+public function list(Request $request, InvoicesReadModel $readModel): JsonResponse
+{
+    $cursor = $request->query->get('cursor') ?: null;
+    $limit  = (int) $request->query->get('limit', 20);
+
+    $result = $readModel->withCursor($cursor, $limit)->getResult();
+
+    return new JsonResponse($result);
+    // {"data":[...],"nextCursor":"...","previousCursor":null,"hasNext":true,"hasPrevious":false,"totalItems":null}
+}
+```
+
+### Cursor security: signed tokens
+
+By default the cursor token is URL-safe base64-encoded JSON (`Base64JsonCursorCodec`). It is opaque to end users but not tamper-proof. Wrap it with `SignedCursorCodec` to add HMAC integrity protection:
+
+```php
+use Kraz\ReadModel\Pagination\Cursor\Base64JsonCursorCodec;
+use Kraz\ReadModel\Pagination\Cursor\SignedCursorCodec;
+
+$codec = new SignedCursorCodec(
+    inner: new Base64JsonCursorCodec(),
+    secret: $appSecret,      // keep this out of version control
+    algo: 'sha256',          // optional, sha256 is the default
+);
+
+$dataSource = new DataSource($data, cursorCodec: $codec);
+```
+
+Any cursor whose HMAC does not validate — whether tampered or simply issued by a different key — throws `InvalidCursorException`.
+
+### Using QueryRequest
+
+Cursor pagination integrates with the `QueryRequest` value object used by `withQueryRequest()`:
+
+```php
+$queryRequest = QueryRequest::create()->withCursor(cursor: $token, limit: 20);
+
+$readModel = $readModel->withQueryRequest($queryRequest);
+// equivalent to: $readModel->withCursor($token, 20)
+```

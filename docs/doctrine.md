@@ -8,10 +8,10 @@ composer require kraz/read-model-doctrine
 
 ## Two Styles of Query
 
-| Style | When to use |
-|---|---|
-| **ORM QueryBuilder** | Entity-mapped data, complex joins already written in DQL |
-| **Raw SQL** | Reporting queries, complex aggregations, performance-critical paths |
+| Style                | When to use                                                         |
+|----------------------|---------------------------------------------------------------------|
+| **ORM QueryBuilder** | Entity-mapped data, complex joins already written in DQL            |
+| **Raw SQL**          | Reporting queries, complex aggregations, performance-critical paths |
 
 ## ORM QueryBuilder
 
@@ -106,9 +106,9 @@ class UsersReadModel implements ReadDataProviderInterface
     {
         return (new DataSourceBuilder())
             ->withData(<<<'SQL'
-                SELECT u.id, u.username, u.first_name || ' ' || u.last_name AS full_name, u.active
-                FROM users u
-                WHERE u.deleted_at IS NULL
+                SELECT r.id, r.username, r.first_name || ' ' || r.last_name AS full_name, r.active
+                FROM users r
+                WHERE r.deleted_at IS NULL
                 /*#WHERE#*/
                 /*#ORDERBY#*/
             SQL)
@@ -132,6 +132,7 @@ WHERE u.active = true
 ```
 
 The `_B` / `_E` suffix marks the beginning and end of a replaceable section. The content inside is used as a default and replaced when filters/sorts are applied.
+Notice that the `WHERE_B/E` and `ORDERBY_B/E` replace slightly different the contents they wrap - the filtering is partial, while the ordering is fully replaceable.
 
 ### Raw SQL with bound parameters
 
@@ -148,10 +149,10 @@ protected function createDataSource(): DataSource
     return $this->rawQuery(
         $this->connection,
         <<<'SQL'
-            SELECT o.id, o.number, o.total
-            FROM orders o
-            WHERE o.tenant_id = :tenant_id
-            AND o.deleted_at IS NULL
+            SELECT r.id, r.number, r.total
+            FROM orders r
+            WHERE r.tenant_id = :tenant_id
+            AND r.deleted_at IS NULL
             /*#WHERE#*/
             /*#ORDERBY#*/
         SQL,
@@ -170,12 +171,12 @@ When you need to add SQL clauses that depend on runtime state (not covered by th
 protected function createDataSource(): DataSource
 {
     $ds = (new DataSourceBuilder())
-        ->withData('SELECT * FROM reports /*#WHERE#*/ /*#ORDERBY#*/')
+        ->withData('SELECT r.* FROM reports r /*#WHERE#*/ /*#ORDERBY#*/')
         ->create($this->connection);
 
     // Add GROUP BY at runtime
     return $ds->withQueryModifier(function (AbstractRawQuery $query) {
-        $query->sql()->addGroupBy('report_date', 'category');
+        $query->sql()->addGroupBy('r.report_date', 'r.category');
     });
 }
 ```
@@ -236,7 +237,7 @@ The library can introspect your Doctrine entities to discover available fields a
 
 ```php
 // Automatic — uses reflection on the entity class
-return (new DataSourceBuilder())
+return new DataSourceBuilder()
     ->withReadModel(UserEntity::class)
     ->withData($qb)
     ->create($connection);
@@ -267,7 +268,7 @@ class ProductsReadModel implements ReadDataProviderInterface
             ->join('p.category', 'cat')
             ->where('p.deletedAt IS NULL');
 
-        return (new DataSourceBuilder())
+        return(new DataSourceBuilder()
             ->withRootIdentifier(self::FIELD_ID)
             ->withFieldMapping([
                 self::FIELD_CATEGORY => 'cat.name',

@@ -5,14 +5,12 @@
 ```bash
 composer require kraz/read-model-json-rpc
 ```
+> [!WARNING]  
+> When using the JSON-RPC implementation of the read model it expects the backend to use any of the read model domain implementations like in-memory, Doctrine, Elasticsearch, JSON-RPC or any adapter built on top of the domain read model public API. 
 
 ## Client Library
 
-The `kraz/json-rpc-client` library provides a ready-to-use `JsonRpcClientInterface` implementation that handles the HTTP transport, request encoding, and response decoding. It integrates directly with `kraz/read-model-json-rpc` — you only need to provide a configured instance and implement `JsonRpcReadClientInterface` on top of it to handle the `read()` method for your specific API endpoint.
-
-```bash
-composer require kraz/json-rpc-client
-```
+The JSON-RPC read model library comes with already available `kraz/json-rpc-client` library which provides a ready-to-use `JsonRpcClientInterface` implementation that handles the HTTP transport, request encoding, and response decoding. It integrates directly with `kraz/read-model-json-rpc` — you only need to provide a configured instance and implement `JsonRpcReadClientInterface` on top of it (or use JsonRpcClientGateway as a base class) to handle the `read()` method for your specific API endpoint.
 
 ## How It Works
 
@@ -60,123 +58,9 @@ class OrdersApiClient implements JsonRpcClientInterface, JsonRpcReadClientInterf
 }
 ```
 
-## Creating the Read Model
+### Using the Gateway Base Class
 
-```php
-use Kraz\ReadModel\ReadDataProviderInterface;
-use Kraz\ReadModelJsonRpc\DataSource;
-use Kraz\ReadModelJsonRpc\DataSourceBuilder;
-use Kraz\ReadModelJsonRpc\JsonRpcReadDataProvider;
-
-class OrdersReadModel implements ReadDataProviderInterface
-{
-    use JsonRpcReadDataProvider;
-
-    const FIELD_ID           = 'id';
-    const FIELD_STATUS       = 'status';
-    const FIELD_CLIENT_NAME  = 'clientName';
-    const FIELD_ORDER_VALUE  = 'orderValue';
-    const FIELD_CREATED_AT   = 'createdAt';
-
-    public function __construct(
-        private readonly OrdersApiClient $api
-    ) {}
-
-    protected function createDataSource(): DataSource
-    {
-        return (new DataSourceBuilder())
-            ->withRootIdentifier(self::FIELD_ID)
-            ->create($this->api);
-    }
-}
-```
-
-## Querying
-
-The read model is used exactly like any other backend:
-
-```php
-// Pagination
-$result = $ordersReadModel
-    ->withPagination(page: 1, itemsPerPage: 20)
-    ->getResult();
-
-// Filtering — params are forwarded to the API
-$filtered = $ordersReadModel
-    ->withPagination(1, 20)
-    ->withQueryExpression(
-        QueryExpression::create()
-            ->andWhere(FilterExpression::create()->equalTo('status', 'confirmed'))
-            ->sortBy('createdAt', SortExpression::DIR_DESC)
-    )
-    ->getResult();
-
-// Direct access
-$items = $ordersReadModel->data();
-```
-
-## Field Mapping
-
-If the API uses different field names from what you expose in your application, declare a mapping:
-
-```php
-const MAPPING = [
-    self::FIELD_CLIENT_NAME => 'client_name',  // app field → API field
-    self::FIELD_ORDER_VALUE => 'order_value',
-];
-
-protected function createDataSource(): DataSource
-{
-    return (new DataSourceBuilder())
-        ->withFieldMapping(self::MAPPING)
-        ->withRootIdentifier(self::FIELD_ID)
-        ->create($this->api);
-}
-```
-
-## In-Memory Specifications
-
-When the API cannot express a complex filter, apply it in PHP using specifications. The library fetches a limited batch from the API and filters it locally:
-
-```php
-use Kraz\ReadModel\Specification\AbstractSpecification;
-
-class HighValueOrderSpecification extends AbstractSpecification
-{
-    public function isSatisfiedBy(mixed $order): bool
-    {
-        return $order['orderValue'] > 1000;
-    }
-}
-
-// Must set a limit when using specifications
-$result = $ordersReadModel
-    ->withSpecification(new HighValueOrderSpecification())
-    ->withLimit(100)
-    ->data();
-```
-
-## Custom Parameter Names
-
-By default the library sends `page`, `pageSize`, `limit`, and `offset` to the API. If your API uses different names:
-
-```php
-protected function createDataSource(): DataSource
-{
-    return (new DataSourceBuilder())
-        ->create(
-            data:               $this->api,
-            pageParamName:      'currentPage',
-            pageSizeParamName:  'perPage',
-            limitParamName:     'maxItems',
-            offsetParamName:    'skip',
-        );
-}
-```
-
-## Gateway Helper — JsonRpcClientGateway
-
-For APIs that require multi-operation patterns (fetch by ID, fetch single by criteria), extend `JsonRpcClientGateway`:
+For richer use cases (denormalization, convenience methods), extend `JsonRpcClientGateway`. It handles extraction, pagination, and optional denormalization automatically:
 
 ```php
 use Kraz\ReadModelJsonRpc\JsonRpcClientGateway;
@@ -220,6 +104,120 @@ class ProductsApiGateway extends JsonRpcClientGateway implements
 
 The `handleRead*` methods take care of calling the API, denormalizing the response, and raising exceptions for unexpected results (e.g., `NonUniqueResultException` when a single-result query finds multiple).
 
+## Creating the Read Model
+
+```php
+use Kraz\ReadModel\ReadDataProviderInterface;
+use Kraz\ReadModelJsonRpc\DataSource;
+use Kraz\ReadModelJsonRpc\DataSourceBuilder;
+use Kraz\ReadModelJsonRpc\JsonRpcReadDataProvider;
+
+class OrdersReadModel implements ReadDataProviderInterface
+{
+    use JsonRpcReadDataProvider;
+
+    const FIELD_ID           = 'id';
+    const FIELD_STATUS       = 'status';
+    const FIELD_CLIENT_NAME  = 'clientName';
+    const FIELD_ORDER_VALUE  = 'orderValue';
+    const FIELD_CREATED_AT   = 'createdAt';
+
+    public function __construct(
+        private readonly OrdersApiClient $api
+    ) {}
+
+    protected function createDataSource(): DataSource
+    {
+        return new DataSourceBuilder()
+            ->withRootIdentifier(self::FIELD_ID)
+            ->create($this->api);
+    }
+}
+```
+
+## Querying
+
+The read model is used exactly like any other backend:
+
+```php
+// Pagination
+$result = $ordersReadModel
+    ->withPagination(page: 1, itemsPerPage: 20)
+    ->getResult();
+
+// Filtering — params are forwarded to the API
+$filtered = $ordersReadModel
+    ->withPagination(1, 20)
+    ->withQueryExpression(
+        QueryExpression::create()
+            ->andWhere(FilterExpression::create()->equalTo('status', 'confirmed'))
+            ->sortBy('createdAt', SortExpression::DIR_DESC)
+    )
+    ->getResult();
+
+// Direct access
+$items = $ordersReadModel->data();
+```
+
+## Field Mapping
+
+If the API uses different field names from what you expose in your application, declare a mapping:
+
+```php
+const MAPPING = [
+    self::FIELD_CLIENT_NAME => 'client_name',  // app field → API field
+    self::FIELD_ORDER_VALUE => 'order_value',
+];
+
+protected function createDataSource(): DataSource
+{
+    return new DataSourceBuilder()
+        ->withFieldMapping(self::MAPPING)
+        ->withRootIdentifier(self::FIELD_ID)
+        ->create($this->api);
+}
+```
+
+## In-Memory Specifications
+
+When the API cannot express a complex filter, apply it in PHP using specifications. The library fetches a limited batch from the API and filters it locally:
+
+```php
+use Kraz\ReadModel\Specification\AbstractSpecification;
+
+class HighValueOrderSpecification extends AbstractSpecification
+{
+    public function isSatisfiedBy(mixed $order): bool
+    {
+        return $order['orderValue'] > 1000;
+    }
+}
+
+// Must set a limit when using specifications
+$result = $ordersReadModel
+    ->withSpecification(new HighValueOrderSpecification())
+    ->withLimit(100)
+    ->data();
+```
+
+## Custom Parameter Names
+
+By default the library sends `page`, `pageSize`, `limit`, and `offset` to the API. If your API uses different names:
+
+```php
+protected function createDataSource(): DataSource
+{
+    return new DataSourceBuilder()
+        ->create(
+            data:               $this->api,
+            pageParamName:      'currentPage',
+            pageSizeParamName:  'perPage',
+            limitParamName:     'maxItems',
+            offsetParamName:    'skip',
+        );
+}
+```
+
 ## Denormalization
 
 `JsonRpcClientGateway` accepts a `JsonRpcDenormalizerInterface` for converting raw arrays to typed objects. Use the provided Symfony adapter or implement your own:
@@ -227,6 +225,7 @@ The `handleRead*` methods take care of calling the API, denormalizing the respon
 ```php
 // Using Symfony Serializer
 use Kraz\ReadModelJsonRpc\JsonRpcDenormalizerInterface;
+use Symfony\Component\Serializer\Normalizer\DenormalizerInterface;
 
 class SymfonyJsonRpcDenormalizer implements JsonRpcDenormalizerInterface
 {

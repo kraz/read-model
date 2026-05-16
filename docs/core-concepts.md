@@ -4,16 +4,18 @@
 
 `ReadDataProviderInterface` is the contract every read model implements, regardless of backend. It provides:
 
-| Method | Description |
-|---|---|
-| `data(): array` | All items on the current "page" (or all items when not paginated) |
-| `getResult(): array\|ReadResponse` | Like `data()` but returns a `ReadResponse` when paginated |
-| `getIterator(): Traversable` | Iterate without loading everything into memory |
-| `count(): int` | Number of items in the current result set |
-| `totalCount(): int` | Total items matching the query, ignoring pagination |
-| `isEmpty(): bool` | `true` when no items match |
-| `isPaginated(): bool` | `true` when pagination is active |
-| `paginator(): PaginatorInterface\|null` | Paginator object, or `null` when not paginated |
+| Method                                                 | Description                                                                                              |
+|--------------------------------------------------------|----------------------------------------------------------------------------------------------------------|
+| `data(): array`                                        | All items on the current "page" (or all items when not paginated)                                        |
+| `getResult(): array\|ReadResponse\|CursorReadResponse` | Like `data()` but returns `ReadResponse` when page-paginated, `CursorReadResponse` when cursor-paginated |
+| `getIterator(): Traversable`                           | Iterate without loading everything into memory                                                           |
+| `count(): int`                                         | Number of items in the current result set                                                                |
+| `totalCount(): int`                                    | Total items matching the query, ignoring pagination                                                      |
+| `isEmpty(): bool`                                      | `true` when no items match                                                                               |
+| `isPaginated(): bool`                                  | `true` when offset/page-based pagination is active                                                       |
+| `isCursored(): bool`                                   | `true` when cursor-based pagination is active                                                            |
+| `paginator(): PaginatorInterface\|null`                | Offset/page paginator object, or `null` when not active                                                  |
+| `cursorPaginator(): CursorPaginatorInterface\|null`    | Cursor paginator object, or `null` when cursor mode is not active                                        |
 
 Calling code only depends on this interface. The backend (Doctrine, JSON-RPC, Elasticsearch, in-memory) is an implementation detail of the read model class.
 
@@ -66,7 +68,7 @@ $archived = $base->withQueryExpression($archivedFilter); // base unchanged
 
 ## ReadResponse
 
-When pagination is active, `getResult()` returns a `ReadResponse` instead of a plain array:
+When offset/page-based pagination is active, `getResult()` returns a `ReadResponse` instead of a plain array:
 
 ```php
 $result = $readModel->withPagination(1, 20)->getResult();
@@ -82,6 +84,29 @@ $result->total; // int — total items across all pages
 return new JsonResponse($readModel->withPagination($page, 20)->getResult());
 // → {"data": [...], "page": 1, "total": 57}
 ```
+
+## CursorReadResponse
+
+When cursor-based pagination is active, `getResult()` returns a `CursorReadResponse`:
+
+```php
+$result = $readModel->withCursor(cursor: null, limit: 20)->getResult();
+
+$result->data;           // T[] — items on the current window
+$result->nextCursor;     // string|null — opaque token to fetch the next window
+$result->previousCursor; // string|null — opaque token to fetch the previous window
+$result->hasNext;        // bool
+$result->hasPrevious;    // bool
+$result->totalItems;     // int|null — null when the adapter did not compute a total
+```
+
+Like `ReadResponse`, `CursorReadResponse` implements `ArrayAccess` and serialises to JSON directly:
+```php
+return new JsonResponse($readModel->withCursor($cursor, 20)->getResult());
+// → {"data":[...],"nextCursor":"...","previousCursor":null,"hasNext":true,"hasPrevious":false,"totalItems":null}
+```
+
+Pass the opaque cursor token from `nextCursor` or `previousCursor` back to `withCursor()` for the next request. Pass `null` (or omit the parameter) to start at the first window. See [Pagination & Limits](pagination.md#cursor-based-keyset-pagination) for a full reference.
 
 ## Read Model Classes
 

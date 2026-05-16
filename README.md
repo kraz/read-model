@@ -42,11 +42,6 @@ class ProductsReadModel implements ReadDataProviderInterface
 {
     use RawQueryReadDataProvider;
 
-    const FIELD_ID       = 'id';
-    const FIELD_NAME     = 'name';
-    const FIELD_PRICE    = 'price';
-    const FIELD_CATEGORY = 'category';
-
     public function __construct(private readonly Connection $connection) {}
 
     protected function createDataSource(): DataSource
@@ -63,22 +58,6 @@ class ProductsReadModel implements ReadDataProviderInterface
                 /*#ORDERBY_B#*/ORDER BY r.id ASC/*#ORDERBY_E#*/
             SQL)
             ->create($this->connection);
-    }
-    
-    public function priceGroup1(): static
-    {
-        return $this->withQueryModifier(static function (QueryParts $qp, ParametersCollection $params): void {
-            $qp->andWhere($qp->expr()->gt('r.price', ':p_price'));
-            $params->setParameter('p_price', 25);
-        });
-    }
-    
-    public function priceGroup2(): static
-    {
-        return $this->withQueryExpression(
-            $this->qry()
-                ->andWhere($this->expr()->greaterThan('price', 25))
-        );
     }    
 }
 ```
@@ -99,8 +78,8 @@ class ProductsReadModel implements ReadDataProviderInterface
     protected function createDataSource(): DataSource
     {
         $qb = $this->em->createQueryBuilder()
-            ->select('p.id, p.name, p.price')
-            ->from(Product::class, 'p');
+            ->select('r.id, r.name, r.price')
+            ->from(Product::class, 'r');
 
         return new DataSource($qb);
     }
@@ -115,9 +94,9 @@ Both styles share the same query API:
 // Filters and sorting
 $products = $readModel
     ->withQueryExpression(
-        QueryExpression::create()
-            ->andWhere(FilterExpression::create()->greaterThan('price', 10))
-            ->andWhere(FilterExpression::create()->equalTo('category', 'tools'))
+        $readModel->qry()
+            ->andWhere($readModel->expr()->greaterThan('price', 10))
+            ->andWhere($readModel->expr()->equalTo('category', 'tools'))
             ->sortBy('name', SortExpression::DIR_ASC)
     )
     ->withPagination(page: 1, itemsPerPage: 20)
@@ -128,26 +107,7 @@ $products = $readModel
 // $result->total  — total matching rows
 ```
 
-### Testing — no database needed
-
-```php
-use Kraz\ReadModel\DataSource;
-
-$stub = new DataSource([
-    ['id' => 1, 'name' => 'Widget', 'price' => 15, 'category' => 'tools'],
-    ['id' => 2, 'name' => 'Gadget', 'price' => 5,  'category' => 'electronics'],
-]);
-
-// All filter, sort, and pagination operations work identically on the in-memory stub
-$cheap = $stub
-    ->withQueryExpression(
-        QueryExpression::create()->andWhere(
-            FilterExpression::create()->lowerThan('price', 10)
-        )
-    )
-    ->data();
-// → [['id' => 2, 'name' => 'Gadget', ...]]
-```
+_The query expression is serializable and can be stored and/or transferred as needed._
 
 ## Acknowledgements
 

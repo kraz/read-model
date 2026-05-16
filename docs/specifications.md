@@ -7,6 +7,9 @@ Use specifications when:
 - You need to share a business rule between the read model and other parts of the application
 - You are testing with in-memory data and want the same rule to work everywhere
 
+> [!WARNING]  
+> Specifications are considered an anti-pattern which introduces unnecessary overengineering and bloated code. So don't use them for simple CRUD like applications or static conditions. They are primarily a solution for highly complex, dynamic rules.
+
 ## Creating a Specification
 
 Extend `AbstractSpecification` and implement `isSatisfiedBy()`:
@@ -39,7 +42,7 @@ $readModel = $readModel
 $items = $readModel->data();
 ```
 
-> **Limit required:** When specifications are used, the library fetches items from the backend in batches and filters them in PHP. You must set a limit so it knows how many items to collect. The limit applies to the *filtered* result, not the raw fetch count.
+> **Limit required:** When specifications are used, the library fetches items from the backend in batches and filters them in PHP. You must set a limit so it knows how many items to collect.
 
 ## Composing Specifications
 

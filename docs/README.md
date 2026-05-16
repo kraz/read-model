@@ -16,7 +16,7 @@ The `kraz/read-model` library family provides a uniform API for querying read-on
 - [Getting Started](getting-started.md) — installation, minimal example, key ideas in one page
 - [Core Concepts](core-concepts.md) — DataSource, ReadModel class, ReadResponse, immutability
 - [Filtering & Sorting](filtering.md) — FilterExpression, QueryExpression, SortExpression
-- [Pagination & Limits](pagination.md) — page-based pagination and limit/offset
+- [Pagination & Limits](pagination.md) — page-based pagination, limit/offset, and cursor (keyset) pagination
 - [Specifications](specifications.md) — the specification pattern for in-memory business-rule filtering
 - [Testing](testing.md) — using the in-memory DataSource in unit and integration tests
 - [Doctrine Backend](doctrine.md) — QueryBuilder, raw SQL, SQL templates
