@@ -11,9 +11,7 @@ use Kraz\ReadModel\Query\SortExpression;
 use Kraz\ReadModel\Specification\SpecificationInterface;
 use Override;
 
-use function count;
 use function is_callable;
-use function max;
 
 /**
  * Provides basic behavior for a builder of ReadDataProviderInterface.
@@ -35,40 +33,37 @@ trait ReadDataProviderBuilder
     private ReadModelDescriptorFactoryInterface|null $descriptorFactory    = null;
     private QueryExpressionProviderInterface|null $queryExpressionProvider = null;
 
-    /** @phpstan-return self<T> */
+    /** @phpstan-return static<T> */
     #[Override]
-    public function andWhere(FilterExpression ...$expr): self
+    public function andWhere(FilterExpression ...$expr): static
     {
-        // Modify the latest query expression or create new one if not exist
-        $index                          = max(count($this->queryExpressions) - 1, 0);
-        $item                           = $this->queryExpressions[$index] ?? QueryExpression::create();
-        $this->queryExpressions[$index] = $item->andWhere(...$expr);
+        /** @phpstan-var static<T> $clone */
+        $clone                     = clone $this;
+        $clone->queryExpressions[] = QueryExpression::create()->andWhere(...$expr);
 
-        return $this;
+        return $clone;
     }
 
-    /** @phpstan-return self<T> */
+    /** @phpstan-return static<T> */
     #[Override]
-    public function orWhere(FilterExpression ...$expr): self
+    public function orWhere(FilterExpression ...$expr): static
     {
-        // Modify the latest query expression or create new one if not exist
-        $index                          = max(count($this->queryExpressions) - 1, 0);
-        $item                           = $this->queryExpressions[$index] ?? QueryExpression::create();
-        $this->queryExpressions[$index] = $item->orWhere(...$expr);
+        /** @phpstan-var static<T> $clone */
+        $clone                     = clone $this;
+        $clone->queryExpressions[] = QueryExpression::create()->orWhere(...$expr);
 
-        return $this;
+        return $clone;
     }
 
-    /** @phpstan-return self<T> */
+    /** @phpstan-return static<T> */
     #[Override]
-    public function sortBy(string $field, string $dir = SortExpression::DIR_ASC): self
+    public function sortBy(string $field, string $dir = SortExpression::DIR_ASC): static
     {
-        // Modify the latest query expression or create new one if not exist
-        $index                          = max(count($this->queryExpressions) - 1, 0);
-        $item                           = $this->queryExpressions[$index] ?? QueryExpression::create();
-        $this->queryExpressions[$index] = $item->sortBy($field, $dir);
+        /** @phpstan-var static<T> $clone */
+        $clone                     = clone $this;
+        $clone->queryExpressions[] = QueryExpression::create()->sortBy($field, $dir);
 
-        return $this;
+        return $clone;
     }
 
     #[Override]

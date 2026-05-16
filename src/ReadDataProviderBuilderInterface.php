@@ -15,34 +15,25 @@ use Kraz\ReadModel\Query\SortExpression;
 interface ReadDataProviderBuilderInterface
 {
     /**
-     * Apply where filter expression.
+     * Apply where filter expression. Always appends a new query expression.
      *
-     * Note: this adds a query expression if one does not exist already. If there are already more than one query
-     * expression assigned then it will use the last one!
-     *
-     * @phpstan-return self<T>
+     * @phpstan-return static<T>
      */
-    public function andWhere(FilterExpression ...$expr): self;
+    public function andWhere(FilterExpression ...$expr): static;
 
     /**
-     * Apply where filter expression.
+     * Apply where filter expression. Always appends a new query expression.
      *
-     * Note: this adds a query expression if one does not exist already. If there are already more than one query
-     * expression assigned then it will use the last one!
-     *
-     * @phpstan-return self<T>
+     * @phpstan-return static<T>
      */
-    public function orWhere(FilterExpression ...$expr): self;
+    public function orWhere(FilterExpression ...$expr): static;
 
     /**
-     * Apply sorting.
+     * Apply sorting. Always appends a new query expression.
      *
-     * Note: this adds a query expression if one does not exist already. If there are already more than one query
-     * expression assigned then it will use the last one!
-     *
-     * @phpstan-return self<T>
+     * @phpstan-return static<T>
      */
-    public function sortBy(string $field, string $dir = SortExpression::DIR_ASC): self;
+    public function sortBy(string $field, string $dir = SortExpression::DIR_ASC): static;
 
     /**
      * @phpstan-param array<string, string>|null $fieldMapping
