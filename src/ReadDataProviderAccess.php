@@ -100,6 +100,15 @@ trait ReadDataProviderAccess
     #[Override]
     public function isEmpty(): bool
     {
+        if ($this->isCursored()) {
+            $cursorPaginator = $this->cursorPaginator();
+            if ($cursorPaginator === null) {
+                return true;
+            }
+
+            return ! $cursorPaginator->hasNext() && ! $cursorPaginator->hasPrevious() && $cursorPaginator->count() === 0;
+        }
+
         return $this->totalCount() === 0;
     }
 
