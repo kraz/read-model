@@ -1,9 +1,10 @@
 # Read Model
 
-A domain-first Read Model library that provides a uniform API for querying read-only data from multiple backends. Define your query logic once; plug in Doctrine ORM, raw SQL, JSON-RPC APIs, or Elasticsearch — or use the built-in in-memory implementation for fast, dependency-free tests.
+[![CI](https://github.com/kraz/read-model/actions/workflows/ci.yml/badge.svg)](https://github.com/kraz/read-model/actions/workflows/ci.yml)
+[![Packagist Version](https://img.shields.io/packagist/v/kraz/read-model)](https://packagist.org/packages/kraz/read-model)
+[![GitHub license](https://img.shields.io/github/license/kraz/read-model)](LICENSE)
 
-> [!WARNING]  
-> This library is still work in progress!
+A domain-first Read Model library that provides a uniform API for querying read-only data from multiple backends. Define your query logic once; plug in Doctrine ORM, raw SQL, JSON-RPC APIs, or Elasticsearch — or use the built-in in-memory implementation for fast, dependency-free tests.
 
 ## Packages
 
