@@ -6,14 +6,21 @@
 
 A domain-first Read Model library that provides a uniform API for querying read-only data from multiple backends. Define your query logic once; plug in Doctrine ORM, raw SQL, JSON-RPC APIs, or Elasticsearch — or use the built-in in-memory implementation for fast, dependency-free tests.
 
-## Packages
+## Installation
 
-| Package | Description |
-|---|---|
-| `kraz/read-model` | Core interfaces + in-memory implementation |
-| `kraz/read-model-doctrine` | Doctrine ORM & raw SQL backend |
-| `kraz/read-model-json-rpc` | JSON-RPC 2.0 API backend |
-| `kraz/read-model-elastic-search` | Elasticsearch backend |
+```bash
+composer require kraz/read-model
+```
+
+## Additional packages
+
+Install any of the following packages which matches your infrastructure requirements:
+
+| Package                                                                             | Description                                                    |
+|-------------------------------------------------------------------------------------|----------------------------------------------------------------|
+| [kraz/read-model-doctrine](https://github.com/kraz/read-model-doctrine)             | Doctrine ORM & raw SQL backend                                 |
+| [kraz/read-model-json-rpc](https://github.com/kraz/read-model-json-rpc)             | JSON-RPC 2.0 API backend _(expects read-model exposed as API)_ |
+| [kraz/read-model-elastic-search](https://github.com/kraz/read-model-elastic-search) | Elasticsearch backend                                          |
 
 ## Documentation
 
@@ -29,7 +36,7 @@ Full documentation lives in the [`docs/`](docs/) directory:
 - [JSON-RPC Backend](docs/json-rpc.md)
 - [Elasticsearch Backend](docs/elasticsearch.md)
 
-## Quick Example
+## Example usage
 
 ### Raw SQL
 

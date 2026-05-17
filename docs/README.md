@@ -4,24 +4,24 @@ The `kraz/read-model` library family provides a uniform API for querying read-on
 
 ## Packages
 
-| Package | Description | Install |
-|---|---|---|
-| [`kraz/read-model`](https://github.com/kraz/read-model) | Core interfaces + in-memory implementation | `composer require kraz/read-model` |
-| [`kraz/read-model-doctrine`](https://github.com/kraz/read-model-doctrine) | Doctrine ORM & raw SQL backend | `composer require kraz/read-model-doctrine` |
-| [`kraz/read-model-json-rpc`](https://github.com/kraz/read-model-json-rpc) | JSON-RPC 2.0 API backend | `composer require kraz/read-model-json-rpc` |
-| [`kraz/read-model-elastic-search`](https://github.com/kraz/read-model-elastic-search) | Elasticsearch backend | `composer require kraz/read-model-elastic-search` |
+| Package                                                                               | Description                                                    | Install                                           |
+|---------------------------------------------------------------------------------------|----------------------------------------------------------------|---------------------------------------------------|
+| [`kraz/read-model`](https://github.com/kraz/read-model)                               | Core interfaces + in-memory implementation                     | `composer require kraz/read-model`                |
+| [`kraz/read-model-doctrine`](https://github.com/kraz/read-model-doctrine)             | Doctrine ORM & raw SQL backend                                 | `composer require kraz/read-model-doctrine`       |
+| [`kraz/read-model-json-rpc`](https://github.com/kraz/read-model-json-rpc)             | JSON-RPC 2.0 API backend _(expects read-model exposed as API)_ | `composer require kraz/read-model-json-rpc`       |
+| [`kraz/read-model-elastic-search`](https://github.com/kraz/read-model-elastic-search) | Elasticsearch backend                                          | `composer require kraz/read-model-elastic-search` |
 
 ## Contents
 
-- [Getting Started](getting-started.md) — installation, minimal example, key ideas in one page
-- [Core Concepts](core-concepts.md) — DataSource, ReadModel class, ReadResponse, immutability
-- [Filtering & Sorting](filtering.md) — FilterExpression, QueryExpression, SortExpression
-- [Pagination & Limits](pagination.md) — page-based pagination, limit/offset, and cursor (keyset) pagination
-- [Specifications](specifications.md) — the specification pattern for in-memory business-rule filtering
-- [Testing](testing.md) — using the in-memory DataSource in unit and integration tests
-- [Doctrine Backend](doctrine.md) — QueryBuilder, raw SQL, SQL templates
-- [JSON-RPC Backend](json-rpc.md) — connecting to a remote JSON-RPC API
-- [Elasticsearch Backend](elasticsearch.md) — full-text search, nested fields, query strategies
+- [Getting Started](getting-started.md) - installation, minimal example, key ideas in one page
+- [Core Concepts](core-concepts.md) - DataSource, ReadModel class, ReadResponse, immutability
+- [Filtering & Sorting](filtering.md) - FilterExpression, QueryExpression, SortExpression
+- [Pagination & Limits](pagination.md) - page-based pagination, limit/offset, and cursor (keyset) pagination
+- [Specifications](specifications.md) - the specification pattern for in-memory business-rule filtering
+- [Testing](testing.md) - using the in-memory DataSource in unit and integration tests
+- [Doctrine Backend](doctrine.md) - QueryBuilder, raw SQL, SQL templates
+- [JSON-RPC Backend](json-rpc.md) - connecting to a remote JSON-RPC API
+- [Elasticsearch Backend](elasticsearch.md) - full-text search, nested fields, query strategies
 
 ## Quick Example
 
