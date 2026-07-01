@@ -11,12 +11,15 @@ use Override;
 use Stringable;
 
 use function array_filter;
+use function base64_decode;
+use function base64_encode;
 use function count;
 use function is_array;
 use function is_int;
 use function is_string;
 use function json_decode;
 use function json_encode;
+use function str_starts_with;
 
 /**
  * @phpstan-import-type QueryExpressionComposite from QueryExpression
@@ -193,6 +196,16 @@ final class QueryRequest implements JsonSerializable, Stringable
         $items = $this->toArray();
 
         return count($items) > 0 ? $items : null;
+    }
+
+    public function encode(): string
+    {
+        $json = json_encode($this);
+        if ($json === false) {
+            throw new InvalidArgumentException('Can not encode the query request. The payload is invalid!');
+        }
+
+        return base64_encode($json);
     }
 
     public function withQueryExpression(QueryExpression $queryExpression): self
@@ -381,14 +394,39 @@ final class QueryRequest implements JsonSerializable, Stringable
         $this->query = clone $this->query;
     }
 
+    public static function decode(string $request): self
+    {
+        if ($request === '') {
+            throw new InvalidArgumentException('The query decode expression is empty!');
+        }
+
+        $exprJson = base64_decode($request, true);
+        if ($exprJson === false) {
+            throw new InvalidArgumentException('Invalid query decode expression!');
+        }
+
+        if ($exprJson === '') {
+            throw new InvalidArgumentException('The decoded query expression is invalid!');
+        }
+
+        return self::create($exprJson);
+    }
+
     /** @phpstan-param QueryRequestComposite|string|null $request */
     public static function create(string|array|null $request = null): self
     {
         if (is_string($request)) {
+            if (! str_starts_with($request, '{')) {
+                $decoded = base64_decode($request, true);
+                if ($decoded !== false) {
+                    $request = $decoded;
+                }
+            }
+
             /** @phpstan-var QueryExpressionComposite|false|null $data */
             $data = json_decode($request, true);
             if ($data !== null && ! is_array($data)) {
-                throw new InvalidArgumentException('Expected null or an array.');
+                throw new InvalidArgumentException('Invalid query request. Expected null or an array.');
             }
 
             $request = $data;
@@ -401,7 +439,10 @@ final class QueryRequest implements JsonSerializable, Stringable
             if ($query instanceof QueryExpression) {
                 $query = clone $query;
             } else {
-                $query = QueryExpression::create($query);
+                $query = QueryExpression::try($query);
+                if ($query === null) {
+                    throw new InvalidArgumentException('Invalid query expression parameter!');
+                }
             }
         }
 
