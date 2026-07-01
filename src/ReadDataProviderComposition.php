@@ -19,11 +19,11 @@ use ReflectionObject;
 use function array_filter;
 use function array_flip;
 use function array_intersect_key;
+use function array_key_exists;
 use function array_pop;
 use function array_unique;
 use function array_unshift;
 use function array_values;
-use function base64_decode;
 use function count;
 use function is_array;
 use function str_starts_with;
@@ -579,16 +579,10 @@ trait ReadDataProviderComposition
         $query     = null;
         $queryBase = $input['query'] ?? null;
         if ($queryBase !== null) {
-            $queryJson = base64_decode($queryBase, true);
-            if ($queryJson === false) {
+            $query = QueryExpression::try($queryBase);
+            if ($query === null) {
                 throw new InvalidArgumentException('Invalid query expression parameter!');
             }
-
-            if ($queryJson === '') {
-                throw new InvalidArgumentException('The query expression is empty!');
-            }
-
-            $query = QueryExpression::create($queryJson);
         }
 
         // Load filters
@@ -633,7 +627,7 @@ trait ReadDataProviderComposition
         // Load pagination
 
         $page     = (int) ($input['page'] ?? 0);
-        $pageSize = (int) ($input['pageSize'] ?? 0);
+        $pageSize = (int) ($input['pageSize'] ?? $input['itemsPerPage'] ?? 0);
 
         // Load limit and offset
 
@@ -641,6 +635,15 @@ trait ReadDataProviderComposition
         $limit  = $limit !== null ? (int) $limit : null;
         $offset = ($input['offset'] ?? null);
         $offset = $offset !== null ? (int) $offset : null;
+
+        // Load cursor
+
+        $cursor      = null;
+        $cursorLimit = 0;
+        if (array_key_exists('cursor', $input) || array_key_exists('cursorLimit', $input)) {
+            $cursor      = $input['cursor'] ?? null;
+            $cursorLimit = $input['cursorLimit'] ?? $limit;
+        }
 
         // Apply
 
@@ -667,6 +670,12 @@ trait ReadDataProviderComposition
             $clone = $clone->withLimit($limit, $offset);
         } else {
             $clone = $clone->withoutLimit();
+        }
+
+        if ($cursorLimit > 0) {
+            $clone = $clone->withCursor($cursor, $cursorLimit);
+        } else {
+            $clone = $clone->withoutCursor();
         }
 
         /** @phpstan-var J $result */
