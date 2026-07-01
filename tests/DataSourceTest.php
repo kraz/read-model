@@ -862,6 +862,44 @@ final class DataSourceTest extends TestCase
         self::assertSame([3], $this->ids($clone));
     }
 
+    public function testHandleInputAcceptsItemsPerPageAsAlternativeToPageSize(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->peopleArray());
+
+        $clone = $ds->handleInput(['page' => 2, 'itemsPerPage' => 2]);
+
+        self::assertTrue($clone->isPaginated());
+        self::assertSame([3, 4], $this->ids($clone));
+    }
+
+    public function testHandleInputAppliesCursorFromInput(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->peopleArray());
+
+        $clone = $ds->handleInput(['cursor' => null, 'cursorLimit' => 2]);
+
+        self::assertTrue($clone->isCursored());
+        self::assertFalse($clone->isPaginated());
+        self::assertSame([1, 2], $this->ids($clone->cursorPaginator() ?? []));
+    }
+
+    public function testHandleInputCursorWithTokenAdvancesPage(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds    = new DataSource($this->peopleArray());
+        $first = $ds->handleInput(['cursor' => null, 'cursorLimit' => 2]);
+        $token = $first->cursorPaginator()?->getNextCursor();
+
+        self::assertNotNull($token);
+
+        $second = $ds->handleInput(['cursor' => $token, 'cursorLimit' => 2]);
+
+        self::assertTrue($second->isCursored());
+        self::assertSame([3, 4], $this->ids($second->cursorPaginator() ?? []));
+    }
+
     // ------------------------------------------------------------------
     // getResult / ReadResponse
     // ------------------------------------------------------------------

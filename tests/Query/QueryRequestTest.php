@@ -10,6 +10,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
 use function assert;
+use function base64_encode;
 use function serialize;
 use function unserialize;
 
@@ -377,5 +378,94 @@ final class QueryRequestTest extends TestCase
     {
         $this->expectException(InvalidArgumentException::class);
         QueryRequest::create('{"cursor":"abc","cursorLimit":"5"}');
+    }
+
+    // ------------------------------------------------------------------
+    // create() — base64 auto-detection
+    // ------------------------------------------------------------------
+
+    public function testCreateAcceptsBase64EncodedJsonString(): void
+    {
+        $encoded = base64_encode('{"limit":7,"offset":14}');
+        $request = QueryRequest::create($encoded);
+
+        self::assertSame(7, $request->getLimit());
+        self::assertSame(14, $request->getOffset());
+    }
+
+    public function testCreateBase64AutoDetectionPreservesJsonPath(): void
+    {
+        $request = QueryRequest::create('{"limit":3}');
+
+        self::assertSame(3, $request->getLimit());
+    }
+
+    // ------------------------------------------------------------------
+    // encode()
+    // ------------------------------------------------------------------
+
+    public function testEncodeReturnsNonEmptyString(): void
+    {
+        $encoded = QueryRequest::create()->withLimit(5, 10)->encode();
+
+        self::assertNotEmpty($encoded);
+    }
+
+    public function testEncodeRoundTripViaCreate(): void
+    {
+        $original = QueryRequest::create()->withLimit(8, 4);
+        $restored = QueryRequest::create($original->encode());
+
+        self::assertSame(8, $restored->getLimit());
+        self::assertSame(4, $restored->getOffset());
+    }
+
+    public function testEncodeRoundTripWithCursor(): void
+    {
+        $original = QueryRequest::create()->withCursor('tok', 15);
+        $restored = QueryRequest::create($original->encode());
+
+        self::assertSame('tok', $restored->getCursor());
+        self::assertSame(15, $restored->getCursorLimit());
+    }
+
+    // ------------------------------------------------------------------
+    // decode()
+    // ------------------------------------------------------------------
+
+    public function testDecodeRestoresRequest(): void
+    {
+        $original = QueryRequest::create()->withLimit(12, 6);
+        $restored = QueryRequest::decode($original->encode());
+
+        self::assertSame(12, $restored->getLimit());
+        self::assertSame(6, $restored->getOffset());
+    }
+
+    public function testDecodeRestoresCursorRequest(): void
+    {
+        $original = QueryRequest::create()->withCursor('cursor-abc', 20);
+        $restored = QueryRequest::decode($original->encode());
+
+        self::assertSame('cursor-abc', $restored->getCursor());
+        self::assertSame(20, $restored->getCursorLimit());
+    }
+
+    public function testDecodeThrowsOnEmptyString(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        QueryRequest::decode('');
+    }
+
+    public function testDecodeThrowsOnInvalidBase64(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        QueryRequest::decode('!!!not-base64!!!');
+    }
+
+    public function testDecodeThrowsWhenDecodedIsEmptyString(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        QueryRequest::decode(base64_encode(''));
     }
 }
