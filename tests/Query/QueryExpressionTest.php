@@ -522,4 +522,60 @@ final class QueryExpressionTest extends TestCase
 
         self::assertSame($provider, $qry->appendTo($provider));
     }
+
+    public function testTryNullReturnsNull(): void
+    {
+        self::assertNull(QueryExpression::try(null));
+    }
+
+    public function testTryEmptyJsonObjectReturnsNull(): void
+    {
+        self::assertNull(QueryExpression::try('{}'));
+    }
+
+    public function testTryJsonStringReturnsExpression(): void
+    {
+        $result = QueryExpression::try('{"filter":{"field":"a","operator":"eq","value":1}}');
+
+        self::assertInstanceOf(QueryExpression::class, $result);
+        self::assertSame('a', $this->filterOf($result)->field());
+        self::assertSame(1, $this->filterOf($result)->value());
+    }
+
+    public function testTryBase64EncodedStringReturnsExpression(): void
+    {
+        $encoded = base64_encode('{"filter":{"field":"x","operator":"eq","value":42},"sort":[{"field":"name","dir":"desc"}]}');
+
+        $result = QueryExpression::try($encoded);
+
+        self::assertInstanceOf(QueryExpression::class, $result);
+        self::assertSame('x', $this->filterOf($result)->field());
+        self::assertSame('desc', $result->sortDir('name'));
+    }
+
+    public function testTryArrayReturnsExpression(): void
+    {
+        $result = QueryExpression::try([
+            'filter' => ['field' => 'b', 'operator' => 'eq', 'value' => 7],
+            'values' => ['p', 'q'],
+        ]);
+
+        self::assertInstanceOf(QueryExpression::class, $result);
+        self::assertSame('b', $this->filterOf($result)->field());
+        self::assertSame(['p', 'q'], $result->getValues());
+    }
+
+    public function testTryEmptyArrayReturnsEmptyExpression(): void
+    {
+        $result = QueryExpression::try([]);
+
+        self::assertInstanceOf(QueryExpression::class, $result);
+        self::assertTrue($result->isEmpty());
+    }
+
+    public function testTryInvalidStringThrows(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        QueryExpression::try('!not-valid-base64-or-json!');
+    }
 }

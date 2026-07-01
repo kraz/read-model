@@ -27,6 +27,7 @@ use function json_decode;
 use function json_encode;
 use function mb_strtolower;
 use function sprintf;
+use function str_starts_with;
 
 /**
  * @phpstan-import-type FilterItem from FilterExpression
@@ -445,5 +446,34 @@ final class QueryExpression implements JsonSerializable, Stringable
         $values = $expression['values'] ?? null;
 
         return new self($filter, $sort, $values);
+    }
+
+    /** @phpstan-param QueryExpressionCompositeFull|string|null $expression */
+    public static function try(string|array|null $expression = null): self|null
+    {
+        if ($expression === null) {
+            return null;
+        }
+
+        if (is_string($expression)) {
+            // Try with json encoded string
+            if (str_starts_with($expression, '{')) {
+                if ($expression === '{}') {
+                    return null;
+                }
+
+                return self::create($expression);
+            }
+
+            // Try with encoded string
+            $decoded = base64_decode($expression, true);
+            if ($decoded !== false) {
+                return self::create($decoded);
+            }
+
+            throw new InvalidArgumentException('Invalid query expression!');
+        }
+
+        return self::create($expression);
     }
 }
