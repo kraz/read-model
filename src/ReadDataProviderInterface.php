@@ -6,6 +6,7 @@ namespace Kraz\ReadModel;
 
 use Countable;
 use IteratorAggregate;
+use Kraz\ReadModel\Exception\InvalidReadDataProviderStateException;
 use Kraz\ReadModel\Pagination\Cursor\CursorPaginatorInterface;
 use Kraz\ReadModel\Pagination\PaginatorInterface;
 use Kraz\ReadModel\Specification\SpecificationInterface;
@@ -61,6 +62,39 @@ interface ReadDataProviderInterface extends ReadDataProviderCompositionInterface
      * @return T[]|ReadResponse<covariant T>|CursorReadResponse<covariant T>
      */
     public function getResult(): array|ReadResponse|CursorReadResponse;
+
+    /**
+     * Get result as list of items.
+     *
+     * An exception is thrown if the current data provider state does not support this type of result.
+     *
+     * @return T[]
+     *
+     * @throws InvalidReadDataProviderStateException
+     */
+    public function getListResult(): array;
+
+    /**
+     * Get result as paginated data.
+     *
+     * An exception is thrown if the current data provider state does not support this type of result.
+     *
+     * @return ReadResponse<covariant T>
+     *
+     * @throws InvalidReadDataProviderStateException
+     */
+    public function getPaginationResult(): ReadResponse;
+
+    /**
+     * Get result as cursored data.
+     *
+     * An exception is thrown if the current data provider state does not support this type of result.
+     *
+     * @return CursorReadResponse<covariant T>
+     *
+     * @throws InvalidReadDataProviderStateException
+     */
+    public function getCursorResult(): CursorReadResponse;
 
     /**
      * Get instance of the (offset/page-based) paginator.

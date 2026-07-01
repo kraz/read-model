@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Kraz\ReadModel\Tests\Query;
 
+use Kraz\ReadModel\CursorReadResponse;
+use Kraz\ReadModel\Exception\InvalidReadDataProviderStateException;
 use Kraz\ReadModel\ReadResponse;
 use Kraz\ReadModel\Tests\Query\Fixtures\PersonFixture;
 use Kraz\ReadModel\Tests\Query\Fixtures\PersonReadModel;
@@ -251,5 +253,36 @@ final class PersonReadModelTest extends TestCase
         $result = $model->reset();
 
         self::assertSame($model, $result);
+    }
+
+    // --- getListResult / getPaginationResult / getCursorResult delegation ---
+
+    public function testGetPaginationResultDelegatesToDataSource(): void
+    {
+        $result = $this->model->getPaginationResult();
+
+        self::assertInstanceOf(ReadResponse::class, $result);
+        self::assertSame(1, $result->page);
+        self::assertSame(5, $result->total);
+    }
+
+    public function testGetListResultThrowsWhenModelIsInPaginatedMode(): void
+    {
+        $this->expectException(InvalidReadDataProviderStateException::class);
+        $this->model->getListResult();
+    }
+
+    public function testGetCursorResultThrowsWhenModelIsInPaginatedMode(): void
+    {
+        $this->expectException(InvalidReadDataProviderStateException::class);
+        $this->model->getCursorResult();
+    }
+
+    public function testGetCursorResultReturnsCursorReadResponseWhenCursored(): void
+    {
+        $result = $this->model->withCursor(null, 2)->getCursorResult();
+
+        self::assertInstanceOf(CursorReadResponse::class, $result);
+        self::assertNotEmpty($result->data);
     }
 }

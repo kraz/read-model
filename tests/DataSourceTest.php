@@ -10,6 +10,7 @@ use InvalidArgumentException;
 use Kraz\ReadModel\Collections\ArrayCollection;
 use Kraz\ReadModel\CursorReadResponse;
 use Kraz\ReadModel\DataSource;
+use Kraz\ReadModel\Exception\InvalidReadDataProviderStateException;
 use Kraz\ReadModel\Exception\MissingValuesException;
 use Kraz\ReadModel\Pagination\InMemoryPaginator;
 use Kraz\ReadModel\Query\QueryExpression;
@@ -1707,5 +1708,123 @@ final class DataSourceTest extends TestCase
         $paginator = $applied->cursorPaginator();
         self::assertNotNull($paginator);
         self::assertSame([1, 2], $this->ids($paginator->getIterator()));
+    }
+
+    // ------------------------------------------------------------------
+    // getListResult / getPaginationResult / getCursorResult
+    // ------------------------------------------------------------------
+
+    public function testGetListResultReturnsArrayWhenInValueMode(): void
+    {
+        $passthrough = $this->createStub(QueryExpressionProviderInterface::class);
+        $passthrough->method('apply')->willReturnArgument(0);
+        $passthrough->method('requireSingleRootIdentifier')->willReturn('id');
+
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->people());
+        $ds = $ds->withQueryExpressionProvider($passthrough);
+
+        $result = $ds->withQueryExpression(QueryExpression::create()->withValues([1, 3]))->getListResult();
+
+        self::assertIsArray($result);
+    }
+
+    public function testGetListResultThrowsWhenResultIsReadResponse(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->people());
+
+        $this->expectException(InvalidReadDataProviderStateException::class);
+        $ds->getListResult();
+    }
+
+    public function testGetListResultThrowsWhenResultIsCursorReadResponse(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->peopleArray());
+
+        $this->expectException(InvalidReadDataProviderStateException::class);
+        $ds->withCursor($this->initialCursor(), 2)->getListResult();
+    }
+
+    public function testGetPaginationResultReturnsPaginationWhenInPaginationMode(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->people());
+
+        $result = $ds->withPagination(1, 2)->getPaginationResult();
+
+        self::assertInstanceOf(ReadResponse::class, $result);
+        self::assertSame(1, $result->page);
+        self::assertSame(3, $result->total);
+    }
+
+    public function testGetPaginationResultReturnsReadResponseForRawCollection(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->people());
+
+        $result = $ds->getPaginationResult();
+
+        self::assertInstanceOf(ReadResponse::class, $result);
+        self::assertSame(3, $result->total);
+    }
+
+    public function testGetPaginationResultThrowsWhenResultIsCursorReadResponse(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->peopleArray());
+
+        $this->expectException(InvalidReadDataProviderStateException::class);
+        $ds->withCursor($this->initialCursor(), 2)->getPaginationResult();
+    }
+
+    public function testGetPaginationResultThrowsWhenResultIsArray(): void
+    {
+        $passthrough = $this->createStub(QueryExpressionProviderInterface::class);
+        $passthrough->method('apply')->willReturnArgument(0);
+        $passthrough->method('requireSingleRootIdentifier')->willReturn('id');
+
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->people());
+        $ds = $ds->withQueryExpressionProvider($passthrough);
+
+        $this->expectException(InvalidReadDataProviderStateException::class);
+        $ds->withQueryExpression(QueryExpression::create()->withValues([1, 3]))->getPaginationResult();
+    }
+
+    public function testGetCursorResultReturnsCursorResponseWhenCursored(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->peopleArray());
+
+        $result = $ds->withCursor($this->initialCursor(), 2)->getCursorResult();
+
+        self::assertInstanceOf(CursorReadResponse::class, $result);
+        self::assertSame([1, 2], $this->ids($result->data ?? []));
+        self::assertTrue($result->hasNext);
+    }
+
+    public function testGetCursorResultThrowsWhenResultIsReadResponse(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->people());
+
+        $this->expectException(InvalidReadDataProviderStateException::class);
+        $ds->getCursorResult();
+    }
+
+    public function testGetCursorResultThrowsWhenResultIsArray(): void
+    {
+        $passthrough = $this->createStub(QueryExpressionProviderInterface::class);
+        $passthrough->method('apply')->willReturnArgument(0);
+        $passthrough->method('requireSingleRootIdentifier')->willReturn('id');
+
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->people());
+        $ds = $ds->withQueryExpressionProvider($passthrough);
+
+        $this->expectException(InvalidReadDataProviderStateException::class);
+        $ds->withQueryExpression(QueryExpression::create()->withValues([1, 3]))->getCursorResult();
     }
 }

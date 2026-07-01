@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kraz\ReadModel;
 
 use InvalidArgumentException;
+use Kraz\ReadModel\Exception\InvalidReadDataProviderStateException;
 use Kraz\ReadModel\Exception\MissingValuesException;
 use Kraz\ReadModel\Query\QueryExpression;
 use Kraz\ReadModel\Tools\CollectionUtils;
@@ -16,6 +17,7 @@ use function array_column;
 use function array_diff;
 use function array_values;
 use function count;
+use function is_array;
 use function iterator_to_array;
 use function max;
 use function sprintf;
@@ -178,6 +180,39 @@ trait ReadDataProviderAccess
 
         /** @phpstan-var ReadResponse<T> $result */
         $result = ReadResponse::create($data, $page, $total);
+
+        return $result;
+    }
+
+    #[Override]
+    public function getListResult(): array
+    {
+        $result = $this->getResult();
+        if (! is_array($result)) {
+            throw new InvalidReadDataProviderStateException('Invalid read data provider state! The expected result is list of data items.');
+        }
+
+        return $result;
+    }
+
+    #[Override]
+    public function getPaginationResult(): ReadResponse
+    {
+        $result = $this->getResult();
+        if (! $result instanceof ReadResponse) {
+            throw new InvalidReadDataProviderStateException('Invalid read data provider state! The expected result is paginated data.');
+        }
+
+        return $result;
+    }
+
+    #[Override]
+    public function getCursorResult(): CursorReadResponse
+    {
+        $result = $this->getResult();
+        if (! $result instanceof CursorReadResponse) {
+            throw new InvalidReadDataProviderStateException('Invalid read data provider state! The expected result is cursored data.');
+        }
 
         return $result;
     }

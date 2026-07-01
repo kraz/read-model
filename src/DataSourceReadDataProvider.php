@@ -104,6 +104,24 @@ trait DataSourceReadDataProvider
     }
 
     #[Override]
+    public function getListResult(): array
+    {
+        return $this->dataSource()->getListResult();
+    }
+
+    #[Override]
+    public function getPaginationResult(): ReadResponse
+    {
+        return $this->dataSource()->getPaginationResult();
+    }
+
+    #[Override]
+    public function getCursorResult(): CursorReadResponse
+    {
+        return $this->dataSource()->getCursorResult();
+    }
+
+    #[Override]
     public function specificationsIterator(array $specifications, int|null $limit = null, int $offset = 0, int|null $batchSize = null): Traversable
     {
         return $this->dataSource()->specificationsIterator($specifications, $limit, $offset, $batchSize);
