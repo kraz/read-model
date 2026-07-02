@@ -17,15 +17,10 @@ use ReflectionClassConstant;
 use ReflectionObject;
 
 use function array_filter;
-use function array_flip;
-use function array_intersect_key;
-use function array_key_exists;
 use function array_pop;
 use function array_unique;
-use function array_unshift;
 use function array_values;
 use function count;
-use function is_array;
 use function str_starts_with;
 
 use const ARRAY_FILTER_USE_KEY;
@@ -574,112 +569,15 @@ trait ReadDataProviderComposition
      */
     public static function applyInputTo(ReadDataProviderCompositionInterface $target, array $input, array $fieldsOperator = [], array $fieldsIgnoreCase = []): ReadDataProviderCompositionInterface
     {
-        // Load query
+        $ref    = new ReflectionObject($target);
+        $fields = $ref->getConstants(ReflectionClassConstant::IS_PUBLIC);
+        $fields = array_filter($fields, static fn ($c) => str_starts_with($c, 'FIELD_'), ARRAY_FILTER_USE_KEY);
+        $fields = array_values($fields);
 
-        $query     = null;
-        $queryBase = $input['query'] ?? null;
-        if ($queryBase !== null) {
-            $query = QueryExpression::try($queryBase);
-            if ($query === null) {
-                throw new InvalidArgumentException('Invalid query expression parameter!');
-            }
-        }
-
-        // Load filters
-
-        $filters = [];
-        $ref     = new ReflectionObject($target);
-        $fields  = $ref->getConstants(ReflectionClassConstant::IS_PUBLIC);
-        $fields  = array_filter($fields, static fn ($c) => str_starts_with($c, 'FIELD_'), ARRAY_FILTER_USE_KEY);
-        $fields  = array_values($fields);
-        foreach ($fields as $field) {
-            $value = $input[$field] ?? null;
-            if ($value === null) {
-                continue;
-            }
-
-            $operator   = $fieldsOperator[$field] ?? FilterExpression::OP_EQ;
-            $ignoreCase = $fieldsIgnoreCase[$field] ?? true;
-            $filters[]  = FilterExpression::create()->valX($field, $operator, $value, $ignoreCase);
-        }
-
-        // Load values
-
-        $value  = $input['value'] ?? null;
-        $values = $input['values'] ?? [];
-        $values = is_array($values) ? $values : [];
-        if ($value !== null) {
-            array_unshift($values, $value);
-        }
-
-        if (count($values) > 0) {
-            $query ??= QueryExpression::create();
-            /** @phpstan-ignore argument.type */
-            $query = $query->withValues($values);
-        }
-
-        // Load order by
-
-        $sort = $input['order'] ?? [];
-        $sort = is_array($sort) ? $sort : [];
-        $sort = array_intersect_key($sort, array_flip($fields));
-
-        // Load pagination
-
-        $page     = (int) ($input['page'] ?? 0);
-        $pageSize = (int) ($input['pageSize'] ?? $input['itemsPerPage'] ?? 0);
-
-        // Load limit and offset
-
-        $limit  = $input['limit'] ?? null;
-        $limit  = $limit !== null ? (int) $limit : null;
-        $offset = ($input['offset'] ?? null);
-        $offset = $offset !== null ? (int) $offset : null;
-
-        // Load cursor
-
-        $cursor      = null;
-        $cursorLimit = 0;
-        if (array_key_exists('cursor', $input) || array_key_exists('cursorLimit', $input)) {
-            $cursor      = $input['cursor'] ?? null;
-            $cursorLimit = $input['cursorLimit'] ?? $limit;
-        }
-
-        // Apply
-
-        if (count($filters) > 0) {
-            $query ??= QueryExpression::create();
-            $query   = $query->andWhere(...$filters);
-        }
-
-        foreach ($sort as $field => $dir) {
-            $query ??= QueryExpression::create();
-            $query   = $query->sortBy($field, $dir);
-        }
-
-        /** @phpstan-var J $clone */
-        $clone = clone $target;
-
-        if ($page > 0 && $pageSize > 0) {
-            $clone = $clone->withPagination($page, $pageSize);
-        } else {
-            $clone = $clone->withoutPagination();
-        }
-
-        if ($limit !== null && $limit > 0 && ($offset === null || $offset >= 0)) {
-            $clone = $clone->withLimit($limit, $offset);
-        } else {
-            $clone = $clone->withoutLimit();
-        }
-
-        if ($cursorLimit > 0) {
-            $clone = $clone->withCursor($cursor, $cursorLimit);
-        } else {
-            $clone = $clone->withoutCursor();
-        }
+        $request = QueryRequest::assemble($input, $fields, $fieldsOperator, $fieldsIgnoreCase);
 
         /** @phpstan-var J $result */
-        $result = $query !== null ? $clone->withQueryExpression($query) : $clone;
+        $result = $target->withQueryRequest($request);
 
         return $result;
     }

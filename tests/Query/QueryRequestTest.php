@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kraz\ReadModel\Tests\Query;
 
 use InvalidArgumentException;
+use Kraz\ReadModel\Query\FilterExpression;
 use Kraz\ReadModel\Query\QueryRequest;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
@@ -467,5 +468,244 @@ final class QueryRequestTest extends TestCase
     {
         $this->expectException(InvalidArgumentException::class);
         QueryRequest::decode(base64_encode(''));
+    }
+
+    // ------------------------------------------------------------------
+    // Mutual exclusivity — new behaviours added in last commit
+    // ------------------------------------------------------------------
+
+    public function testWithPaginationClearsLimitAndOffset(): void
+    {
+        $request = QueryRequest::create()->withLimit(10, 5)->withPagination(2, 20);
+
+        self::assertNull($request->getLimit());
+        self::assertNull($request->getOffset());
+        self::assertSame(2, $request->getPage());
+        self::assertSame(20, $request->getItemsPerPage());
+    }
+
+    public function testWithLimitClearsPageBasedPagination(): void
+    {
+        $request = QueryRequest::create()->withPagination(3, 15)->withLimit(10, 5);
+
+        self::assertNull($request->getPage());
+        self::assertNull($request->getItemsPerPage());
+        self::assertSame(10, $request->getLimit());
+        self::assertSame(5, $request->getOffset());
+    }
+
+    // ------------------------------------------------------------------
+    // assemble() — happy paths
+    // ------------------------------------------------------------------
+
+    public function testAssembleEmptyInputReturnsEmptyRequest(): void
+    {
+        $request = QueryRequest::assemble([]);
+
+        self::assertTrue($request->isEmpty());
+        self::assertNull($request->getQuery());
+        self::assertNull($request->getLimit());
+        self::assertNull($request->getCursor());
+        self::assertNull($request->getPage());
+    }
+
+    public function testAssembleWithQueryKey(): void
+    {
+        $request = QueryRequest::assemble(['query' => '{"filters":[]}']);
+
+        self::assertNotNull($request->getQuery());
+    }
+
+    public function testAssembleWithInvalidQueryThrows(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        QueryRequest::assemble(['query' => 'not-valid-json!!!!']);
+    }
+
+    public function testAssembleAppliesFieldFilters(): void
+    {
+        $request = QueryRequest::assemble(['name' => 'Alice'], ['name']);
+
+        $query = $request->getQuery();
+        self::assertNotNull($query);
+        self::assertFalse($query->isEmpty());
+    }
+
+    public function testAssembleIgnoresInputKeyNotInFields(): void
+    {
+        $request = QueryRequest::assemble(['unknown' => 'value'], ['name']);
+
+        self::assertNull($request->getQuery());
+    }
+
+    public function testAssembleRespectsFieldsOperator(): void
+    {
+        $request = QueryRequest::assemble(
+            ['name' => 'Ali'],
+            ['name'],
+            ['name' => FilterExpression::OP_STARTS_WITH],
+        );
+
+        $query = $request->getQuery();
+        self::assertNotNull($query);
+        self::assertStringContainsString(FilterExpression::OP_STARTS_WITH, (string) $query);
+    }
+
+    public function testAssembleWithValueKey(): void
+    {
+        $request = QueryRequest::assemble(['value' => 'foo']);
+
+        $query = $request->getQuery();
+        self::assertNotNull($query);
+        self::assertStringContainsString('foo', (string) $query);
+    }
+
+    public function testAssembleWithValuesKey(): void
+    {
+        $request = QueryRequest::assemble(['values' => ['a', 'b']]);
+
+        $query = $request->getQuery();
+        self::assertNotNull($query);
+        self::assertStringContainsString('a', (string) $query);
+    }
+
+    public function testAssembleValueIsPrependedToValues(): void
+    {
+        $request = QueryRequest::assemble(['value' => 'first', 'values' => ['second']]);
+
+        $query = $request->getQuery();
+        self::assertNotNull($query);
+        $json = (string) $query;
+        self::assertStringContainsString('first', $json);
+        self::assertStringContainsString('second', $json);
+    }
+
+    public function testAssembleNonArrayValuesIsIgnored(): void
+    {
+        $request = QueryRequest::assemble(['values' => 'not-an-array']);
+
+        self::assertNull($request->getQuery());
+    }
+
+    public function testAssembleWithOrderAppliesSort(): void
+    {
+        $request = QueryRequest::assemble(['order' => ['name' => 'asc']], ['name']);
+
+        $query = $request->getQuery();
+        self::assertNotNull($query);
+        self::assertStringContainsString('name', (string) $query);
+    }
+
+    public function testAssembleOrderOnlyAllowsKnownFields(): void
+    {
+        $request = QueryRequest::assemble(['order' => ['unknown' => 'asc']], ['name']);
+
+        self::assertNull($request->getQuery());
+    }
+
+    public function testAssembleNonArrayOrderIsIgnored(): void
+    {
+        $request = QueryRequest::assemble(['order' => 'asc'], ['name']);
+
+        self::assertNull($request->getQuery());
+    }
+
+    // ------------------------------------------------------------------
+    // assemble() — pagination modes
+    // ------------------------------------------------------------------
+
+    public function testAssembleWithPageAndPageSize(): void
+    {
+        $request = QueryRequest::assemble(['page' => 2, 'pageSize' => 10]);
+
+        self::assertSame(2, $request->getPage());
+        self::assertSame(10, $request->getItemsPerPage());
+        self::assertNull($request->getLimit());
+        self::assertNull($request->getCursor());
+    }
+
+    public function testAssembleWithPageAndItemsPerPageAlias(): void
+    {
+        $request = QueryRequest::assemble(['page' => 3, 'itemsPerPage' => 15]);
+
+        self::assertSame(3, $request->getPage());
+        self::assertSame(15, $request->getItemsPerPage());
+    }
+
+    public function testAssembleWithLimitAndOffset(): void
+    {
+        $request = QueryRequest::assemble(['limit' => 20, 'offset' => 40]);
+
+        self::assertSame(20, $request->getLimit());
+        self::assertSame(40, $request->getOffset());
+        self::assertNull($request->getPage());
+        self::assertNull($request->getCursor());
+    }
+
+    public function testAssembleWithLimitOnly(): void
+    {
+        $request = QueryRequest::assemble(['limit' => 5]);
+
+        self::assertSame(5, $request->getLimit());
+        self::assertNull($request->getOffset());
+    }
+
+    public function testAssembleWithCursorAndCursorLimit(): void
+    {
+        $request = QueryRequest::assemble(['cursor' => 'tok', 'cursorLimit' => 25]);
+
+        self::assertSame('tok', $request->getCursor());
+        self::assertSame(25, $request->getCursorLimit());
+        self::assertNull($request->getLimit());
+        self::assertNull($request->getPage());
+    }
+
+    public function testAssembleCursorLimitDefaultsToLimit(): void
+    {
+        $request = QueryRequest::assemble(['cursor' => 'tok', 'limit' => 10]);
+
+        self::assertSame('tok', $request->getCursor());
+        self::assertSame(10, $request->getCursorLimit());
+    }
+
+    public function testAssembleCursorKeyAloneActivatesCursor(): void
+    {
+        $request = QueryRequest::assemble(['cursorLimit' => 30]);
+
+        self::assertNull($request->getCursor());
+        self::assertSame(30, $request->getCursorLimit());
+    }
+
+    // ------------------------------------------------------------------
+    // assemble() — pagination mode priority (cursor > limit > page)
+    // ------------------------------------------------------------------
+
+    public function testAssembleCursorWinsOverLimitAndPagination(): void
+    {
+        $request = QueryRequest::assemble([
+            'page'        => 2,
+            'pageSize'    => 10,
+            'limit'       => 20,
+            'cursor'      => 'tok',
+            'cursorLimit' => 5,
+        ]);
+
+        self::assertSame('tok', $request->getCursor());
+        self::assertSame(5, $request->getCursorLimit());
+        self::assertNull($request->getLimit());
+        self::assertNull($request->getPage());
+    }
+
+    public function testAssembleLimitWinsOverPaginationWhenNoCursor(): void
+    {
+        $request = QueryRequest::assemble([
+            'page'     => 2,
+            'pageSize' => 10,
+            'limit'    => 20,
+        ]);
+
+        self::assertSame(20, $request->getLimit());
+        self::assertNull($request->getPage());
+        self::assertNull($request->getCursor());
     }
 }

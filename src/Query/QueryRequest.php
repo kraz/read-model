@@ -11,6 +11,10 @@ use Override;
 use Stringable;
 
 use function array_filter;
+use function array_flip;
+use function array_intersect_key;
+use function array_key_exists;
+use function array_unshift;
 use function base64_decode;
 use function base64_encode;
 use function count;
@@ -241,6 +245,9 @@ final class QueryRequest implements JsonSerializable, Stringable
         $clone               = clone $this;
         $clone->page         = $page;
         $clone->itemsPerPage = $itemsPerPage;
+        // Limit/offset mode is mutually exclusive with limit/offset mode.
+        $clone->limit  = null;
+        $clone->offset = null;
         // Page-based pagination is mutually exclusive with cursor mode.
         $clone->cursor      = null;
         $clone->cursorLimit = null;
@@ -274,6 +281,9 @@ final class QueryRequest implements JsonSerializable, Stringable
         $clone         = clone $this;
         $clone->limit  = $limit;
         $clone->offset = $offset;
+        // Limit/offset mode is mutually exclusive with pagination mode.
+        $clone->page         = null;
+        $clone->itemsPerPage = null;
         // Limit/offset mode is mutually exclusive with cursor mode.
         $clone->cursor      = null;
         $clone->cursorLimit = null;
@@ -304,11 +314,12 @@ final class QueryRequest implements JsonSerializable, Stringable
         $clone              = clone $this;
         $clone->cursor      = $cursor;
         $clone->cursorLimit = $limit;
-        // Cursor mode is mutually exclusive with the existing offset/page modes.
+        // Cursor mode is mutually exclusive with the existing pagination modes.
         $clone->page         = null;
         $clone->itemsPerPage = null;
-        $clone->limit        = null;
-        $clone->offset       = null;
+        // Cursor mode is mutually exclusive with the existing offset/page modes.
+        $clone->limit  = null;
+        $clone->offset = null;
 
         return $clone;
     }
@@ -483,5 +494,115 @@ final class QueryRequest implements JsonSerializable, Stringable
         }
 
         return new self($query, $page, $itemsPerPage, $limit, $offset, $cursor, $cursorLimit);
+    }
+
+    /**
+     * @phpstan-param array<string, mixed> $input
+     * @phpstan-param string[] $fields
+     * @phpstan-param array<string, string> $fieldsOperator
+     * @phpstan-param array<string, bool> $fieldsIgnoreCase
+     */
+    public static function assemble(array $input, array $fields = [], array $fieldsOperator = [], array $fieldsIgnoreCase = []): self
+    {
+        // Load query
+
+        $query     = null;
+        $queryBase = $input['query'] ?? null;
+        if ($queryBase !== null) {
+            $query = QueryExpression::try($queryBase);
+            if ($query === null) {
+                throw new InvalidArgumentException('Invalid query expression parameter!');
+            }
+        }
+
+        // Load filters
+
+        $filters = [];
+        foreach ($fields as $field) {
+            $value = $input[$field] ?? null;
+            if ($value === null) {
+                continue;
+            }
+
+            $operator   = $fieldsOperator[$field] ?? FilterExpression::OP_EQ;
+            $ignoreCase = $fieldsIgnoreCase[$field] ?? true;
+            $filters[]  = FilterExpression::create()->valX($field, $operator, $value, $ignoreCase);
+        }
+
+        // Load values
+
+        $value  = $input['value'] ?? null;
+        $values = $input['values'] ?? [];
+        $values = is_array($values) ? $values : [];
+        if ($value !== null) {
+            array_unshift($values, $value);
+        }
+
+        if (count($values) > 0) {
+            $query ??= QueryExpression::create();
+            /** @phpstan-ignore argument.type */
+            $query = $query->withValues($values);
+        }
+
+        // Load order by
+
+        $sort = $input['order'] ?? [];
+        $sort = is_array($sort) ? $sort : [];
+        $sort = array_intersect_key($sort, array_flip($fields));
+
+        // Load pagination
+
+        $page     = (int) ($input['page'] ?? 0);
+        $pageSize = (int) ($input['pageSize'] ?? $input['itemsPerPage'] ?? 0);
+
+        // Load limit and offset
+
+        $limit  = $input['limit'] ?? null;
+        $limit  = $limit !== null ? (int) $limit : null;
+        $offset = ($input['offset'] ?? null);
+        $offset = $offset !== null ? (int) $offset : null;
+
+        // Load cursor
+
+        $cursor      = null;
+        $cursorLimit = 0;
+        if (array_key_exists('cursor', $input) || array_key_exists('cursorLimit', $input)) {
+            $cursor      = $input['cursor'] ?? null;
+            $cursorLimit = $input['cursorLimit'] ?? $limit;
+        }
+
+        // Apply
+
+        if (count($filters) > 0) {
+            $query ??= QueryExpression::create();
+            $query   = $query->andWhere(...$filters);
+        }
+
+        foreach ($sort as $field => $dir) {
+            $query ??= QueryExpression::create();
+            $query   = $query->sortBy($field, $dir);
+        }
+
+        $request = self::create();
+
+        if ($page > 0 && $pageSize > 0) {
+            $request = $request->withPagination($page, $pageSize);
+        } else {
+            $request = $request->withoutPagination();
+        }
+
+        if ($limit !== null && $limit > 0 && ($offset === null || $offset >= 0)) {
+            $request = $request->withLimit($limit, $offset);
+        } else {
+            $request = $request->withoutLimit();
+        }
+
+        if ($cursorLimit > 0) {
+            $request = $request->withCursor($cursor, $cursorLimit);
+        } else {
+            $request = $request->withoutCursor();
+        }
+
+        return $query !== null ? $request->withQueryExpression($query) : $request;
     }
 }
