@@ -17,6 +17,7 @@ use Kraz\ReadModel\Query\QueryExpression;
 use Kraz\ReadModel\Query\QueryExpressionProvider;
 use Kraz\ReadModel\Query\QueryExpressionProviderInterface;
 use Kraz\ReadModel\Query\QueryRequest;
+use Kraz\ReadModel\ReadDataProviderCompositionInterface;
 use Kraz\ReadModel\ReadDataProviderInterface;
 use Kraz\ReadModel\ReadModelDescriptorFactory;
 use Kraz\ReadModel\ReadModelDescriptorFactoryInterface;
@@ -1746,6 +1747,108 @@ final class DataSourceTest extends TestCase
         $paginator = $applied->cursorPaginator();
         self::assertNotNull($paginator);
         self::assertSame([1, 2], $this->ids($paginator->getIterator()));
+    }
+
+    // ------------------------------------------------------------------
+    // Default modes — withDefaultPagination / withDefaultLimit / withDefaultCursor
+    // ------------------------------------------------------------------
+
+    public function testWithDefaultPaginationUsesFirstPageAndDefaultPageSize(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds     = new DataSource($this->peopleArray());
+        $result = $ds->withDefaultPagination();
+
+        self::assertTrue($result->isPaginated());
+        self::assertSame([1, 2, 3, 4, 5], $this->ids($result));
+        $paginator = $result->paginator();
+        self::assertNotNull($paginator);
+        self::assertSame(1, $paginator->getCurrentPage());
+        self::assertSame(ReadDataProviderCompositionInterface::DEFAULT_PAGE_SIZE, $paginator->getItemsPerPage());
+    }
+
+    public function testWithDefaultPaginationClearsExistingLimit(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds     = new DataSource($this->peopleArray());
+        $result = $ds->withLimit(2)->withDefaultPagination();
+
+        self::assertTrue($result->isPaginated());
+        self::assertSame([1, 2, 3, 4, 5], $this->ids($result));
+    }
+
+    public function testWithDefaultPaginationClearsExistingCursor(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds     = new DataSource($this->peopleArray());
+        $result = $ds->withCursor($this->initialCursor(), 2)->withDefaultPagination();
+
+        self::assertFalse($result->isCursored());
+        self::assertTrue($result->isPaginated());
+    }
+
+    public function testWithDefaultLimitReturnsAllItemsWhenDatasetFitsInDefaultSize(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds     = new DataSource($this->peopleArray());
+        $result = $ds->withDefaultLimit();
+
+        self::assertFalse($result->isPaginated());
+        self::assertSame([1, 2, 3, 4, 5], $this->ids($result));
+    }
+
+    public function testWithDefaultLimitClearsExistingPagination(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds     = new DataSource($this->peopleArray());
+        $result = $ds->withPagination(1, 2)->withDefaultLimit();
+
+        self::assertFalse($result->isPaginated());
+        self::assertSame([1, 2, 3, 4, 5], $this->ids($result));
+    }
+
+    public function testWithDefaultLimitClearsExistingCursor(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds     = new DataSource($this->peopleArray());
+        $result = $ds->withCursor($this->initialCursor(), 2)->withDefaultLimit();
+
+        self::assertFalse($result->isCursored());
+        self::assertFalse($result->isPaginated());
+    }
+
+    public function testWithDefaultCursorActivatesCursorModeOnFirstPage(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds     = new DataSource($this->peopleArray());
+        $result = $ds->withDefaultCursor();
+
+        self::assertTrue($result->isCursored());
+        self::assertFalse($result->isPaginated());
+        $paginator = $result->cursorPaginator();
+        self::assertNotNull($paginator);
+        self::assertSame(ReadDataProviderCompositionInterface::DEFAULT_CURSOR_SIZE, $paginator->getLimit());
+        self::assertSame([1, 2, 3, 4, 5], $this->ids($paginator->getIterator()));
+    }
+
+    public function testWithDefaultCursorClearsExistingPagination(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds     = new DataSource($this->peopleArray());
+        $result = $ds->withPagination(1, 2)->withDefaultCursor();
+
+        self::assertFalse($result->isPaginated());
+        self::assertTrue($result->isCursored());
+    }
+
+    public function testWithDefaultCursorClearsExistingLimit(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds     = new DataSource($this->peopleArray());
+        $result = $ds->withLimit(2)->withDefaultCursor();
+
+        self::assertTrue($result->isCursored());
+        self::assertFalse($result->isPaginated());
     }
 
     // ------------------------------------------------------------------

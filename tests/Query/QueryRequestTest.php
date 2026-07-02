@@ -708,4 +708,16 @@ final class QueryRequestTest extends TestCase
         self::assertNull($request->getPage());
         self::assertNull($request->getCursor());
     }
+
+    // ------------------------------------------------------------------
+    // create() — cursor limit fallback to limit (commit 841282c fix)
+    // ------------------------------------------------------------------
+
+    public function testCreateFallsBackCursorLimitToLimitWhenCursorIsPresentAndCursorLimitIsAbsent(): void
+    {
+        $request = QueryRequest::create(['cursor' => 'tok', 'limit' => 10]);
+
+        self::assertSame('tok', $request->getCursor());
+        self::assertSame(10, $request->getCursorLimit());
+    }
 }

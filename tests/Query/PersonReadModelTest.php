@@ -6,6 +6,7 @@ namespace Kraz\ReadModel\Tests\Query;
 
 use Kraz\ReadModel\CursorReadResponse;
 use Kraz\ReadModel\Exception\InvalidReadDataProviderStateException;
+use Kraz\ReadModel\ReadDataProviderCompositionInterface;
 use Kraz\ReadModel\ReadResponse;
 use Kraz\ReadModel\Tests\Query\Fixtures\PersonFixture;
 use Kraz\ReadModel\Tests\Query\Fixtures\PersonReadModel;
@@ -253,6 +254,39 @@ final class PersonReadModelTest extends TestCase
         $result = $model->reset();
 
         self::assertSame($model, $result);
+    }
+
+    // --- Default modes (DataSourceReadDataProvider delegation) ---
+
+    public function testWithDefaultPaginationSetsPageOneWithDefaultPageSize(): void
+    {
+        $model = $this->model->withDefaultPagination();
+
+        self::assertTrue($model->isPaginated());
+        self::assertSame([1, 2, 3, 4, 5], $this->ids($model));
+        $paginator = $model->paginator();
+        self::assertNotNull($paginator);
+        self::assertSame(1, $paginator->getCurrentPage());
+        self::assertSame(ReadDataProviderCompositionInterface::DEFAULT_PAGE_SIZE, $paginator->getItemsPerPage());
+    }
+
+    public function testWithDefaultLimitIsNotPaginatedAndReturnsAllItems(): void
+    {
+        $model = $this->model->withDefaultLimit();
+
+        self::assertFalse($model->isPaginated());
+        self::assertSame([1, 2, 3, 4, 5], $this->ids($model));
+    }
+
+    public function testWithDefaultCursorActivatesCursorModeOnFirstPage(): void
+    {
+        $model = $this->model->withDefaultCursor();
+
+        self::assertTrue($model->isCursored());
+        self::assertFalse($model->isPaginated());
+        $paginator = $model->cursorPaginator();
+        self::assertNotNull($paginator);
+        self::assertSame(ReadDataProviderCompositionInterface::DEFAULT_CURSOR_SIZE, $paginator->getLimit());
     }
 
     // --- getListResult / getPaginationResult / getCursorResult delegation ---
