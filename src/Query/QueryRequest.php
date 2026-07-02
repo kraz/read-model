@@ -493,6 +493,10 @@ final class QueryRequest implements JsonSerializable, Stringable
             throw new InvalidArgumentException('Expected null or an integer.');
         }
 
+        if (array_key_exists('cursor', $request) || array_key_exists('cursorLimit', $request)) {
+            $cursorLimit = $cursorLimit ?? $limit ?? 0;
+        }
+
         return new self($query, $page, $itemsPerPage, $limit, $offset, $cursor, $cursorLimit);
     }
 
@@ -568,7 +572,7 @@ final class QueryRequest implements JsonSerializable, Stringable
         $cursorLimit = 0;
         if (array_key_exists('cursor', $input) || array_key_exists('cursorLimit', $input)) {
             $cursor      = $input['cursor'] ?? null;
-            $cursorLimit = $input['cursorLimit'] ?? $limit;
+            $cursorLimit = (int) ($input['cursorLimit'] ?? $limit ?? 0);
         }
 
         // Apply
