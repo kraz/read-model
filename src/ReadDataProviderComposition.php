@@ -153,6 +153,12 @@ trait ReadDataProviderComposition
     }
 
     #[Override]
+    public function withDefaultPagination(): static
+    {
+        return $this->withPagination(1, self::DEFAULT_PAGE_SIZE);
+    }
+
+    #[Override]
     public function withPagination(int $page, int $itemsPerPage): static
     {
         if (count($this->specifications) > 0) {
@@ -198,6 +204,12 @@ trait ReadDataProviderComposition
     }
 
     #[Override]
+    public function withDefaultLimit(): static
+    {
+        return $this->withLimit(self::DEFAULT_LIMIT_SIZE, 0);
+    }
+
+    #[Override]
     public function withLimit(int $limit, int|null $offset = null): static
     {
         if ($limit <= 0) {
@@ -236,6 +248,12 @@ trait ReadDataProviderComposition
         }
 
         return $cloned;
+    }
+
+    #[Override]
+    public function withDefaultCursor(): static
+    {
+        return $this->withCursor(null, self::DEFAULT_CURSOR_SIZE);
     }
 
     #[Override]

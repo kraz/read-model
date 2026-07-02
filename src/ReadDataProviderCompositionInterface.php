@@ -17,6 +17,10 @@ use Kraz\ReadModel\Specification\SpecificationInterface;
  */
 interface ReadDataProviderCompositionInterface
 {
+    public const int DEFAULT_PAGE_SIZE   = 25;
+    public const int DEFAULT_LIMIT_SIZE  = 25;
+    public const int DEFAULT_CURSOR_SIZE = 25;
+
     /**
      * Get query expression instance for easier flow calls.
      */
@@ -33,9 +37,20 @@ interface ReadDataProviderCompositionInterface
     public function isValue(): bool;
 
     /**
+     * Enable data pagination with default page size and positioning on the first page.
+     *
+     * Setting this clears any limit and/or offset already set.
+     * Setting this clears any cursor already set.
+     *
+     * @phpstan-return static<T>
+     */
+    public function withDefaultPagination(): static;
+
+    /**
      * Enable data pagination.
      *
      * Setting this clears any limit and/or offset already set.
+     * Setting this clears any cursor already set.
      *
      * @phpstan-param int<0, max> $page
      * @phpstan-param int<0, max> $itemsPerPage
@@ -55,9 +70,20 @@ interface ReadDataProviderCompositionInterface
     public function withoutPagination(bool $undo = false): static;
 
     /**
+     * Enable the limit and offset for the returned items with the default preset values.
+     *
+     * Setting this clears any limit and/or offset already set.
+     * Setting this clears any cursor already set.
+     *
+     * @phpstan-return static<T>
+     */
+    public function withDefaultLimit(): static;
+
+    /**
      * Limit the number of returned items, with an optional offset.
      *
      * Setting this clears any active pagination.
+     * Setting this clears any cursor already set.
      *
      * @phpstan-param int<0, max> $limit
      * @phpstan-param int<0, max>|null $offset
@@ -77,6 +103,16 @@ interface ReadDataProviderCompositionInterface
     public function withoutLimit(bool $undo = false): static;
 
     /**
+     * Enable data cursor-based pagination with default cursor size and positioning on the first page.
+     *
+     * Setting this clears any limit and/or offset already set.
+     * Setting this clears any pagination already set.
+     *
+     * @phpstan-return static<T>
+     */
+    public function withDefaultCursor(): static;
+
+    /**
      * Enable cursor-based (keyset) pagination.
      *
      * Pass `null` (or omit) for the first page when no cursor has yet been issued; pass
@@ -85,6 +121,9 @@ interface ReadDataProviderCompositionInterface
      * contain. Setting cursor mode clears any active page-based pagination and any
      * active limit/offset. Cannot be combined with specifications (mirrors the existing
      * page+spec restriction).
+     *
+     * Setting this clears any limit and/or offset already set.
+     * Setting this clears any pagination already set.
      *
      * @phpstan-param int<0, max> $limit
      *

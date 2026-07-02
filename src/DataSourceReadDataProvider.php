@@ -140,6 +140,12 @@ trait DataSourceReadDataProvider
     }
 
     #[Override]
+    public function withDefaultPagination(): static
+    {
+        return $this->withPagination(1, self::DEFAULT_PAGE_SIZE);
+    }
+
+    #[Override]
     public function withPagination(int $page, int $itemsPerPage): static
     {
         $clone             = clone $this;
@@ -158,6 +164,12 @@ trait DataSourceReadDataProvider
     }
 
     #[Override]
+    public function withDefaultLimit(): static
+    {
+        return $this->withLimit(self::DEFAULT_LIMIT_SIZE, 0);
+    }
+
+    #[Override]
     public function withLimit(int $limit, int|null $offset = null): static
     {
         $clone             = clone $this;
@@ -173,6 +185,12 @@ trait DataSourceReadDataProvider
         $clone->dataSource = $clone->dataSource()->withoutLimit($undo);
 
         return $clone;
+    }
+
+    #[Override]
+    public function withDefaultCursor(): static
+    {
+        return $this->withCursor(null, self::DEFAULT_CURSOR_SIZE);
     }
 
     #[Override]
