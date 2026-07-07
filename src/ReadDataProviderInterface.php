@@ -59,7 +59,7 @@ interface ReadDataProviderInterface extends ReadDataProviderCompositionInterface
      * In cursor mode the response is a {@see CursorReadResponse}; in offset/page mode
      * it is a {@see ReadResponse}; for value queries it is a flat array.
      *
-     * @return T[]|ReadResponse<covariant T>|CursorReadResponse<covariant T>
+     * @return T[]|ReadResponse<T>|CursorReadResponse<T>
      */
     public function getResult(): array|ReadResponse|CursorReadResponse;
 
@@ -79,7 +79,7 @@ interface ReadDataProviderInterface extends ReadDataProviderCompositionInterface
      *
      * An exception is thrown if the current data provider state does not support this type of result.
      *
-     * @return ReadResponse<covariant T>
+     * @return ReadResponse<T>
      *
      * @throws InvalidReadDataProviderStateException
      */
@@ -90,7 +90,7 @@ interface ReadDataProviderInterface extends ReadDataProviderCompositionInterface
      *
      * An exception is thrown if the current data provider state does not support this type of result.
      *
-     * @return CursorReadResponse<covariant T>
+     * @return CursorReadResponse<T>
      *
      * @throws InvalidReadDataProviderStateException
      */

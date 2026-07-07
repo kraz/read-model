@@ -11,20 +11,31 @@ use RuntimeException;
 use function in_array;
 
 /**
- * @phpstan-template T of object|array<string, mixed>
- * @template-implements ArrayAccess<string, T[]|int<0, max>|null>
+ * @phpstan-template-covariant T of object|array<string, mixed>
+ * @template-implements ArrayAccess<string, object[]|array<array<string, mixed>>|int<0, max>|null>
  */
 class ReadResponse implements ArrayAccess
 {
-    /** @phpstan-var T[]|null */
-    public array|null $data = null;
-    /** @phpstan-var int<0, max>|null */
-    public int|null $page = null;
-    /** @phpstan-var int<0, max>|null */
-    public int|null $total = null;
+    public function __construct(
+        /** @phpstan-var T[]|null */
+        public readonly array|null $data = null,
+        /** @phpstan-var int<0, max>|null */
+        public readonly int|null $page = null,
+        /** @phpstan-var int<0, max>|null */
+        public readonly int|null $total = null,
+    ) {
+        $this->validate();
+    }
 
-    final public function __construct()
+    protected function validate(): void
     {
+        if ($this->page <= 0) {
+            throw new InvalidArgumentException('Expected a positive integer.');
+        }
+
+        if ($this->total < 0) {
+            throw new InvalidArgumentException('Expected a positive integer.');
+        }
     }
 
     public function offsetExists(mixed $offset): bool
@@ -51,29 +62,5 @@ class ReadResponse implements ArrayAccess
     public function offsetUnset(mixed $offset): void
     {
         throw new RuntimeException('Invalid operation. Can not modify read response!');
-    }
-
-    /**
-     * @phpstan-param T[] $data
-     * @phpstan-param int<0, max> $page
-     * @phpstan-param int<0, max> $total
-     */
-    public static function create(array $data, int $page, int $total): static
-    {
-        if ($page <= 0) {
-            throw new InvalidArgumentException('Expected a positive integer.');
-        }
-
-        if ($total < 0) {
-            throw new InvalidArgumentException('Expected a positive integer.');
-        }
-
-        /** @phpstan-var static<T> $instance */
-        $instance        = new static();
-        $instance->data  = $data;
-        $instance->page  = $page;
-        $instance->total = $total;
-
-        return $instance;
     }
 }

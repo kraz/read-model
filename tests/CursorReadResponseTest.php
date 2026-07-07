@@ -15,7 +15,7 @@ final class CursorReadResponseTest extends TestCase
 {
     public function testCreatePopulatesAllFields(): void
     {
-        $response = CursorReadResponse::create(
+        $response = new CursorReadResponse(
             data: [['id' => 1]],
             nextCursor: 'next-token',
             previousCursor: 'prev-token',
@@ -34,7 +34,7 @@ final class CursorReadResponseTest extends TestCase
 
     public function testCreateAllowsNullCursorsAndTotal(): void
     {
-        $response = CursorReadResponse::create([], null, null, false, false);
+        $response = new CursorReadResponse([], null, null, false, false);
 
         self::assertNull($response->nextCursor);
         self::assertNull($response->previousCursor);
@@ -46,12 +46,12 @@ final class CursorReadResponseTest extends TestCase
     {
         $this->expectException(InvalidArgumentException::class);
         /** @phpstan-ignore argument.type */
-        CursorReadResponse::create([], null, null, false, false, -1);
+        new CursorReadResponse([], null, null, false, false, -1);
     }
 
     public function testArrayAccessReadsFields(): void
     {
-        $response = CursorReadResponse::create(
+        $response = new CursorReadResponse(
             [['id' => 1]],
             'n',
             'p',
@@ -71,7 +71,7 @@ final class CursorReadResponseTest extends TestCase
 
     public function testOffsetExistsCoversAllKnownFields(): void
     {
-        $response = CursorReadResponse::create([], null, null, false, false);
+        $response = new CursorReadResponse([], null, null, false, false);
 
         self::assertTrue(isset($response['data']));
         self::assertTrue(isset($response['nextCursor']));
@@ -84,7 +84,7 @@ final class CursorReadResponseTest extends TestCase
 
     public function testOffsetSetIsRejected(): void
     {
-        $response = CursorReadResponse::create([], null, null, false, false);
+        $response = new CursorReadResponse([], null, null, false, false);
 
         $this->expectException(RuntimeException::class);
         $response['data'] = [];
@@ -92,7 +92,7 @@ final class CursorReadResponseTest extends TestCase
 
     public function testOffsetUnsetIsRejected(): void
     {
-        $response = CursorReadResponse::create([], null, null, false, false);
+        $response = new CursorReadResponse([], null, null, false, false);
 
         $this->expectException(RuntimeException::class);
         unset($response['data']);

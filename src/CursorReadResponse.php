@@ -17,27 +17,29 @@ use function in_array;
  * cursor-specific fields. Total item count is optional — null indicates the adapter
  * chose not to compute it, which is the keyset-friendly default.
  *
- * @phpstan-template T of object|array<string, mixed>
- * @template-implements ArrayAccess<string, T[]|string|bool|int<0, max>|null>
+ * @phpstan-template-covariant T of object|array<string, mixed>
+ * @template-implements ArrayAccess<string, object[]|array<array<string, mixed>>|string|bool|int<0, max>|null>
  */
 class CursorReadResponse implements ArrayAccess
 {
-    /** @phpstan-var T[]|null */
-    public array|null $data = null;
+    public function __construct(
+        /** @phpstan-var T[]|null */
+        public readonly array|null $data = null,
+        public readonly string|null $nextCursor = null,
+        public readonly string|null $previousCursor = null,
+        public readonly bool $hasNext = false,
+        public readonly bool $hasPrevious = false,
+        /** @phpstan-var int<0, max>|null */
+        public readonly int|null $totalItems = null,
+    ) {
+        $this->validate();
+    }
 
-    public string|null $nextCursor = null;
-
-    public string|null $previousCursor = null;
-
-    public bool $hasNext = false;
-
-    public bool $hasPrevious = false;
-
-    /** @phpstan-var int<0, max>|null */
-    public int|null $totalItems = null;
-
-    final public function __construct()
+    protected function validate(): void
     {
+        if ($this->totalItems !== null && $this->totalItems < 0) {
+            throw new InvalidArgumentException('Expected a non-negative integer.');
+        }
     }
 
     public function offsetExists(mixed $offset): bool
@@ -67,33 +69,5 @@ class CursorReadResponse implements ArrayAccess
     public function offsetUnset(mixed $offset): void
     {
         throw new RuntimeException('Invalid operation. Can not modify cursor read response!');
-    }
-
-    /**
-     * @phpstan-param T[]              $data
-     * @phpstan-param int<0, max>|null $totalItems
-     */
-    public static function create(
-        array $data,
-        string|null $nextCursor,
-        string|null $previousCursor,
-        bool $hasNext,
-        bool $hasPrevious,
-        int|null $totalItems = null,
-    ): static {
-        if ($totalItems !== null && $totalItems < 0) {
-            throw new InvalidArgumentException('Expected a non-negative integer.');
-        }
-
-        /** @phpstan-var static<T> $instance */
-        $instance                 = new static();
-        $instance->data           = $data;
-        $instance->nextCursor     = $nextCursor;
-        $instance->previousCursor = $previousCursor;
-        $instance->hasNext        = $hasNext;
-        $instance->hasPrevious    = $hasPrevious;
-        $instance->totalItems     = $totalItems;
-
-        return $instance;
     }
 }

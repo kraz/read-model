@@ -162,7 +162,7 @@ trait ReadDataProviderAccess
             $cursorPaginator = $this->cursorPaginator();
             if ($cursorPaginator !== null) {
                 /** @phpstan-var CursorReadResponse<T> $cursorResult */
-                $cursorResult = CursorReadResponse::create(
+                $cursorResult = new CursorReadResponse(
                     $data,
                     $cursorPaginator->getNextCursor(),
                     $cursorPaginator->getPreviousCursor(),
@@ -179,7 +179,7 @@ trait ReadDataProviderAccess
         $total = $this->totalCount();
 
         /** @phpstan-var ReadResponse<T> $result */
-        $result = ReadResponse::create($data, $page, $total);
+        $result = new ReadResponse($data, $page, $total);
 
         return $result;
     }
