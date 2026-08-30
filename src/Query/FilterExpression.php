@@ -21,6 +21,7 @@ use function count;
 use function implode;
 use function in_array;
 use function is_array;
+use function is_bool;
 use function is_string;
 use function json_decode;
 use function json_encode;
@@ -117,7 +118,7 @@ final class FilterExpression implements JsonSerializable, Stringable
     }
 
     /** @phpstan-ignore missingType.iterableValue */
-    public function valX(string $field, string $operator, string|int|float|array|null $value, bool $ignoreCase = true): self
+    public function valX(string $field, string $operator, string|int|float|bool|array|null $value, bool $ignoreCase = true): self
     {
         $clone = clone $this;
         if (($value === null || $value === '' || (is_array($value) && count($value) === 0)) && self::operatorRequiresValue($operator)) {
@@ -244,6 +245,10 @@ final class FilterExpression implements JsonSerializable, Stringable
         }
 
         $value = $this->value() ?? '';
+        if (is_bool($value)) {
+            $value = $value ? 'true' : 'false';
+        }
+
         $value = $this->ignoreCase() ? mb_strtoupper((string) $value) : $value;
 
         return str_replace('%value%', (string) $value, $expression);
@@ -339,12 +344,12 @@ final class FilterExpression implements JsonSerializable, Stringable
         return $this->logicX(self::LOGIC_OR, ...$x);
     }
 
-    public function equalTo(string $field, string|int|float|null $value, bool $ignoreCase = true): self
+    public function equalTo(string $field, string|int|float|bool|null $value, bool $ignoreCase = true): self
     {
         return $this->valX($field, self::OP_EQ, $value, $ignoreCase);
     }
 
-    public function notEqualTo(string $field, string|int|float|null $value, bool $ignoreCase = true): self
+    public function notEqualTo(string $field, string|int|float|bool|null $value, bool $ignoreCase = true): self
     {
         return $this->valX($field, self::OP_NEQ, $value, $ignoreCase);
     }
@@ -478,7 +483,8 @@ final class FilterExpression implements JsonSerializable, Stringable
     /** @phpstan-return FilterCompositeArrayItems|null */
     public function jsonSerialize(): array|null
     {
-        $items = array_filter($this->toArray());
+        // Only unset entries are dropped - "false" is a meaningful filter value and flag.
+        $items = array_filter($this->toArray(), static fn (mixed $v): bool => $v !== null && $v !== []);
 
         return count($items) > 0 ? $items : null;
     }

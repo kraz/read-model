@@ -84,16 +84,39 @@ final class QueryExpression implements JsonSerializable, Stringable
 
     public function andWhere(FilterExpression ...$expr): self
     {
-        $clone         = clone $this;
-        $clone->filter = $this->expr()->andX(...$expr);
-
-        return $clone;
+        return $this->where(FilterExpression::LOGIC_AND, ...$expr);
     }
 
     public function orWhere(FilterExpression ...$expr): self
     {
-        $clone         = clone $this;
-        $clone->filter = $this->expr()->orX(...$expr);
+        return $this->where(FilterExpression::LOGIC_OR, ...$expr);
+    }
+
+    /**
+     * Composes the given expressions with the filter the query expression already carries, so that the
+     * restrictions accumulate instead of replacing the previous ones.
+     */
+    private function where(string $logic, FilterExpression ...$expr): self
+    {
+        $clone   = clone $this;
+        $current = $clone->filter;
+
+        // There is nothing to preserve, so compose the given expressions on their own.
+        if ($current === null || $current->isFilterEmpty()) {
+            $clone->filter = $this->expr()->logicX($logic, ...$expr);
+
+            return $clone;
+        }
+
+        // The current filter is a composition using the same logic operator, so append to it directly.
+        if ($current->field() === null && $current->logic() === $logic && ! $current->inverted()) {
+            $clone->filter = $current->logicX($logic, ...$expr);
+
+            return $clone;
+        }
+
+        // Otherwise keep the current filter as a nested group, so its own logic operator is preserved.
+        $clone->filter = $this->expr()->logicX($logic, $current, ...$expr);
 
         return $clone;
     }

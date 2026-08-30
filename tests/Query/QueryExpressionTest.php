@@ -128,15 +128,58 @@ final class QueryExpressionTest extends TestCase
         self::assertSame('or', $this->filterOf($qry)->logic());
     }
 
-    public function testAndWhereOverwritesPreviousFilter(): void
+    public function testAndWhereAccumulatesOntoThePreviousFilter(): void
     {
         $qry = QueryExpression::create();
         $qry = $qry->andWhere($qry->expr()->equalTo('a', 1));
         $qry = $qry->andWhere($qry->expr()->equalTo('b', 2));
 
         $filters = $this->filterOf($qry)->filters();
-        self::assertCount(1, $filters);
-        self::assertSame('b', $filters[0]->field());
+        self::assertCount(2, $filters);
+        self::assertSame('a', $filters[0]->field());
+        self::assertSame('b', $filters[1]->field());
+    }
+
+    public function testAndWhereNestsAPreviousOrCompositionAsAGroup(): void
+    {
+        $qry = QueryExpression::create();
+        $qry = $qry->orWhere($qry->expr()->equalTo('a', 1), $qry->expr()->equalTo('b', 2));
+        $qry = $qry->andWhere($qry->expr()->equalTo('c', 3));
+
+        $filter = $this->filterOf($qry);
+        self::assertSame('and', $filter->logic());
+
+        $filters = $filter->filters();
+        self::assertCount(2, $filters);
+        self::assertSame('or', $filters[0]->logic());
+        self::assertCount(2, $filters[0]->filters());
+        self::assertSame('c', $filters[1]->field());
+    }
+
+    public function testOrWhereNestsAPreviousAndCompositionAsAGroup(): void
+    {
+        $qry = QueryExpression::create();
+        $qry = $qry->andWhere($qry->expr()->equalTo('a', 1), $qry->expr()->equalTo('b', 2));
+        $qry = $qry->orWhere($qry->expr()->equalTo('c', 3));
+
+        $filter = $this->filterOf($qry);
+        self::assertSame('or', $filter->logic());
+
+        $filters = $filter->filters();
+        self::assertCount(2, $filters);
+        self::assertSame('and', $filters[0]->logic());
+        self::assertSame('c', $filters[1]->field());
+    }
+
+    public function testAndWhereNestsAPreviousSingleFieldFilter(): void
+    {
+        $qry = QueryExpression::create(['filter' => ['field' => 'a', 'operator' => 'eq', 'value' => 1]]);
+        $qry = $qry->andWhere($qry->expr()->equalTo('b', 2));
+
+        $filters = $this->filterOf($qry)->filters();
+        self::assertCount(2, $filters);
+        self::assertSame('a', $filters[0]->field());
+        self::assertSame('b', $filters[1]->field());
     }
 
     public function testSortByAccumulates(): void

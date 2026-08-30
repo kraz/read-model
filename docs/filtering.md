@@ -121,6 +121,24 @@ $qe = QueryExpression::create()
     ->sortBy('id', SortExpression::DIR_ASC);
 ```
 
+`andWhere()` and `orWhere()` **accumulate** onto the filter the expression already carries — they never
+discard it. When the existing filter uses the other logic operator (or is a single field filter), it is kept
+as a nested group, so its own operator still applies:
+
+```php
+$qe = QueryExpression::create()
+    ->orWhere(
+        FilterExpression::create()->equalTo('status', 'paid'),
+        FilterExpression::create()->equalTo('status', 'partially_paid'),
+    )
+    ->andWhere(FilterExpression::create()->equalTo('currency', 'EUR'));
+
+// (status = "paid" OR status = "partially_paid") AND currency = "EUR"
+```
+
+The same composition is used by `QueryRequest::assemble()` when it folds flat request parameters into a
+`query` expression, so a grid that mixes a text filter with a select filter keeps both restrictions.
+
 ### Applying to a read model
 
 ```php
