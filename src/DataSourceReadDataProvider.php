@@ -86,6 +86,12 @@ trait DataSourceReadDataProvider
     }
 
     #[Override]
+    public function isList(): bool
+    {
+        return $this->dataSource()->isList();
+    }
+
+    #[Override]
     public function getIterator(): Traversable
     {
         return $this->dataSource()->getIterator();
@@ -137,6 +143,30 @@ trait DataSourceReadDataProvider
     public function cursorPaginator(): CursorPaginatorInterface|null
     {
         return $this->dataSource()->cursorPaginator();
+    }
+
+    #[Override]
+    public function withDefaultList(): static
+    {
+        return $this->withList();
+    }
+
+    #[Override]
+    public function withList(int|null $maxItems = null): static
+    {
+        $clone             = clone $this;
+        $clone->dataSource = $clone->dataSource()->withList($maxItems);
+
+        return $clone;
+    }
+
+    #[Override]
+    public function withoutList(bool $undo = false): static
+    {
+        $clone             = clone $this;
+        $clone->dataSource = $clone->dataSource()->withoutList($undo);
+
+        return $clone;
     }
 
     #[Override]

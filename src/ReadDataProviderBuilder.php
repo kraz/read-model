@@ -135,6 +135,11 @@ trait ReadDataProviderBuilder
             $dataProvider = $dataProvider->withItemNormalizer($this->itemNormalizer);
         }
 
+        if ($this->list) {
+            // Applied before the limit, so a list mode cap survives it.
+            $dataProvider = $dataProvider->withList();
+        }
+
         if ($this->pagination !== null) {
             [$page, $itemsPerPage] = $this->pagination;
             $dataProvider          = $dataProvider->withPagination($page, $itemsPerPage);

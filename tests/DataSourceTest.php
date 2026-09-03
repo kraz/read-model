@@ -1852,6 +1852,167 @@ final class DataSourceTest extends TestCase
     }
 
     // ------------------------------------------------------------------
+    // List mode
+    // ------------------------------------------------------------------
+
+    public function testWithListReturnsWholeDataSetAsPlainArray(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->peopleArray());
+
+        $list = $ds->withList();
+
+        self::assertTrue($list->isList());
+        self::assertFalse($list->isPaginated());
+        self::assertFalse($list->isCursored());
+        self::assertIsArray($list->getResult());
+        self::assertSame([1, 2, 3, 4, 5], $this->ids($list->getListResult()));
+        self::assertSame(5, $list->count());
+        self::assertSame(5, $list->totalCount());
+    }
+
+    public function testWithDefaultListReturnsWholeDataSetAsPlainArray(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->peopleArray());
+
+        $list = $ds->withDefaultList();
+
+        self::assertTrue($list->isList());
+        self::assertSame([1, 2, 3, 4, 5], $this->ids($list->getListResult()));
+    }
+
+    public function testWithListAppliesTheOptionalMaxItemsCap(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->peopleArray());
+
+        $list = $ds->withList(2);
+
+        self::assertTrue($list->isList());
+        self::assertSame([1, 2], $this->ids($list->getListResult()));
+        self::assertSame(5, $list->totalCount());
+    }
+
+    public function testWithListKeepsAnExplicitLimitAndOffset(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->peopleArray());
+
+        $list = $ds->withList()->withLimit(2, 1);
+
+        self::assertTrue($list->isList());
+        self::assertSame([2, 3], $this->ids($list->getListResult()));
+    }
+
+    public function testWithListRejectsNonPositiveMaxItems(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->peopleArray());
+
+        $this->expectException(InvalidArgumentException::class);
+        $ds->withList(0);
+    }
+
+    public function testWithListClearsPaginationAndCursor(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->peopleArray());
+
+        $fromPagination = $ds->withPagination(2, 2)->withList();
+        self::assertFalse($fromPagination->isPaginated());
+        self::assertNull($fromPagination->paginator());
+        self::assertSame([1, 2, 3, 4, 5], $this->ids($fromPagination->getListResult()));
+
+        $fromCursor = $ds->withCursor($this->initialCursor(), 2)->withList();
+        self::assertFalse($fromCursor->isCursored());
+        self::assertSame([1, 2, 3, 4, 5], $this->ids($fromCursor->getListResult()));
+    }
+
+    public function testListModeIgnoresTheUnderlyingPaginator(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource(new InMemoryPaginator(new ArrayIterator($this->peopleArray()), 5, 1, 2));
+
+        $list = $ds->withList();
+
+        self::assertFalse($list->isPaginated());
+        self::assertNull($list->paginator());
+        self::assertIsArray($list->getResult());
+    }
+
+    public function testWithPaginationClearsListMode(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->peopleArray());
+
+        $paginated = $ds->withList()->withPagination(1, 2);
+
+        self::assertFalse($paginated->isList());
+        self::assertTrue($paginated->isPaginated());
+        self::assertInstanceOf(ReadResponse::class, $paginated->getResult());
+    }
+
+    public function testWithCursorClearsListMode(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->peopleArray());
+
+        $cursored = $ds->withList()->withCursor($this->initialCursor(), 2);
+
+        self::assertFalse($cursored->isList());
+        self::assertTrue($cursored->isCursored());
+        self::assertInstanceOf(CursorReadResponse::class, $cursored->getResult());
+    }
+
+    public function testGetPaginationResultThrowsInListMode(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->peopleArray());
+
+        $this->expectException(InvalidReadDataProviderStateException::class);
+        $ds->withList()->getPaginationResult();
+    }
+
+    public function testWithoutListRestoresThePaginatedResultShape(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->peopleArray());
+
+        $plain = $ds->withList()->withoutList();
+
+        self::assertFalse($plain->isList());
+        self::assertInstanceOf(ReadResponse::class, $plain->getResult());
+    }
+
+    public function testWithoutListUndoStepsBackOneLevel(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->peopleArray());
+
+        $list = $ds->withList();
+
+        self::assertFalse($list->withoutList(undo: true)->isList());
+        self::assertFalse($list->withoutList(undo: true)->withoutList(undo: true)->isList());
+    }
+
+    public function testValueModeIsAlsoListMode(): void
+    {
+        $passthrough = $this->createStub(QueryExpressionProviderInterface::class);
+        $passthrough->method('apply')->willReturnArgument(0);
+        $passthrough->method('requireSingleRootIdentifier')->willReturn('id');
+
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->people());
+        $ds = $ds->withQueryExpressionProvider($passthrough);
+        $ds = $ds->withQueryExpression(QueryExpression::create()->withValues([1, 3]));
+
+        self::assertTrue($ds->isList());
+        // The value mode is not affected by the explicit list mode state.
+        self::assertTrue($ds->withoutList()->isList());
+    }
+
+    // ------------------------------------------------------------------
     // getListResult / getPaginationResult / getCursorResult
     // ------------------------------------------------------------------
 

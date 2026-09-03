@@ -7,11 +7,12 @@
 | Method                                                 | Description                                                                                              |
 |--------------------------------------------------------|----------------------------------------------------------------------------------------------------------|
 | `data(): array`                                        | All items on the current "page" (or all items when not paginated)                                        |
-| `getResult(): array\|ReadResponse\|CursorReadResponse` | Like `data()` but returns `ReadResponse` when page-paginated, `CursorReadResponse` when cursor-paginated |
+| `getResult(): array\|ReadResponse\|CursorReadResponse` | Like `data()` but returns `ReadResponse` when page-paginated, `CursorReadResponse` when cursor-paginated and a plain array in list mode |
 | `getIterator(): Traversable`                           | Iterate without loading everything into memory                                                           |
 | `count(): int`                                         | Number of items in the current result set                                                                |
 | `totalCount(): int`                                    | Total items matching the query, ignoring pagination                                                      |
 | `isEmpty(): bool`                                      | `true` when no items match                                                                               |
+| `isList(): bool`                                       | `true` when list mode is active, i.e. the result is a plain list of data items                           |
 | `isPaginated(): bool`                                  | `true` when offset/page-based pagination is active                                                       |
 | `isCursored(): bool`                                   | `true` when cursor-based pagination is active                                                            |
 | `paginator(): PaginatorInterface\|null`                | Offset/page paginator object, or `null` when not active                                                  |
@@ -65,6 +66,22 @@ $base     = $readModel->withQueryExpression($commonFilter);
 $active   = $base->withQueryExpression($activeFilter);   // base unchanged
 $archived = $base->withQueryExpression($archivedFilter); // base unchanged
 ```
+
+## List Mode
+
+When list mode is active, `getResult()` returns a plain array of items — the whole data set, without
+pagination metadata. Enable it with `withList()` (or `withDefaultList()`):
+
+```php
+$items = $readModel->withList()->getResult();     // T[]
+$items = $readModel->withList()->getListResult(); // T[], type-safe accessor
+
+// Cap the number of fetched items
+$items = $readModel->withList(maxItems: 100)->getListResult();
+```
+
+Value queries (`values[]` / `withValues()`) are always in list mode, so `isList()` is `true` for them
+as well. See [Pagination & Limits](pagination.md#list-mode-fetching-the-whole-data-set).
 
 ## ReadResponse
 

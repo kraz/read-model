@@ -52,6 +52,10 @@ trait ReadDataProviderComposition
     /** @phpstan-var array<int, array{string|null, int<1, max>}|null> */
     private array $cursorHistory = [];
 
+    private bool $list = false;
+    /** @phpstan-var array<int, bool> */
+    private array $listHistory = [];
+
     /** @phpstan-var QueryExpression[] */
     private array $queryExpressions = [];
     /** @phpstan-var array<int, QueryExpression[]> */
@@ -153,6 +157,58 @@ trait ReadDataProviderComposition
     }
 
     #[Override]
+    final public function isList(): bool
+    {
+        // Value mode always yields a plain list of data items, so it is a list mode as well.
+        return $this->list || $this->isValue();
+    }
+
+    #[Override]
+    public function withDefaultList(): static
+    {
+        return $this->withList();
+    }
+
+    #[Override]
+    public function withList(int|null $maxItems = null): static
+    {
+        if ($maxItems !== null && $maxItems <= 0) {
+            throw new InvalidArgumentException('Expected a positive integer.');
+        }
+
+        /** @phpstan-var static<T> $cloned */
+        $cloned                    = clone $this;
+        $cloned->listHistory[]     = $cloned->list;
+        $cloned->list              = true;
+        $cloned->pagination        = null;
+        $cloned->paginationHistory = [];
+        $cloned->cursor            = null;
+        $cloned->cursorHistory     = [];
+
+        // The optional cap reuses the limit state, so every data source honoring a limit
+        // applies it without any additional handling of the list mode.
+        return $maxItems !== null ? $cloned->withLimit($maxItems) : $cloned;
+    }
+
+    #[Override]
+    public function withoutList(bool $undo = false): static
+    {
+        /** @phpstan-var static<T> $cloned */
+        $cloned = clone $this;
+
+        if ($undo) {
+            $cloned->list = count($cloned->listHistory) > 0
+                ? array_pop($cloned->listHistory)
+                : false;
+        } else {
+            $cloned->list        = false;
+            $cloned->listHistory = [];
+        }
+
+        return $cloned;
+    }
+
+    #[Override]
     public function withDefaultPagination(): static
     {
         return $this->withPagination(1, self::DEFAULT_PAGE_SIZE);
@@ -181,6 +237,8 @@ trait ReadDataProviderComposition
         $cloned->limitHistory        = [];
         $cloned->cursor              = null;
         $cloned->cursorHistory       = [];
+        $cloned->list                = false;
+        $cloned->listHistory         = [];
 
         return $cloned;
     }
@@ -282,6 +340,8 @@ trait ReadDataProviderComposition
         $cloned->paginationHistory = [];
         $cloned->limit             = null;
         $cloned->limitHistory      = [];
+        $cloned->list              = false;
+        $cloned->listHistory       = [];
 
         return $cloned;
     }

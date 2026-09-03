@@ -46,6 +46,62 @@ return new JsonResponse($result);
 // {"data": [...], "page": 1, "total": 57}
 ```
 
+## List Mode: Fetching the Whole Data Set
+
+Page-based and cursor-based pagination both shape the result into a response object. List mode is the
+counterpart for the "give me everything" case — useful for relatively small data sets, e.g. filling a
+select input in a web application:
+
+```php
+$readModel = $readModel->withList();
+
+$readModel->isList();        // true
+$readModel->isPaginated();   // false
+$readModel->isCursored();    // false
+
+$readModel->getResult();     // T[] — a plain array, no pagination metadata
+$readModel->getListResult(); // T[] — same, but type-safe (throws when not in list mode)
+$readModel->totalCount();    // total matching rows
+```
+
+`withDefaultList()` is the shorthand for the whole data set:
+
+```php
+$items = $readModel->withDefaultList()->getListResult();
+```
+
+Pass `maxItems` to cap how much is fetched. The cap is applied as a limit, so it replaces any limit
+and/or offset already set:
+
+```php
+$items = $readModel->withList(maxItems: 100)->getListResult(); // at most 100 items
+```
+
+List mode only defines the shape of the result, so an explicit limit/offset can still be applied on
+top of it and the result stays a plain list:
+
+```php
+$items = $readModel->withList()->withLimit(10, 30)->getListResult(); // items 31–40, as an array
+```
+
+Enabling list mode clears any active pagination and cursor, and enabling either of those clears the
+list mode:
+
+```php
+$readModel->withPagination(1, 20)->withList()->isPaginated(); // false
+$readModel->withList()->withPagination(1, 20)->isList();      // false
+```
+
+Remove it with `withoutList()` (the same default-clear / `undo: true` pattern as the other modes):
+
+```php
+$readModel = $readModel->withList()->withoutList();
+$readModel->getResult(); // ReadResponse again
+```
+
+Value queries are always in list mode — `getResult()` has always returned a plain array for them — so
+`isList()` is `true` whenever `isValue()` is, and `withoutList()` does not change that.
+
 ## Limit / Offset
 
 For non-page-based slicing (e.g., "give me 10 items starting from item 30"):
@@ -83,7 +139,7 @@ $readModel = $readModel
     ->withoutPagination(undo: true) // already empty — stays empty
 ```
 
-The same default-clear / `undo: true` pattern applies to `withoutLimit()`, `withoutQueryExpression()`, and `withoutSpecification()`.
+The same default-clear / `undo: true` pattern applies to `withoutLimit()`, `withoutList()`, `withoutQueryExpression()`, and `withoutSpecification()`.
 
 ## Pagination in Controllers
 

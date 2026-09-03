@@ -37,10 +37,60 @@ interface ReadDataProviderCompositionInterface
     public function isValue(): bool;
 
     /**
+     * Check if the data is in list mode, i.e. the result is a plain list of data items.
+     *
+     * This is `TRUE` when list mode has been enabled explicitly with {@see self::withList()} and
+     * also when the data is in value mode ({@see self::isValue()}), which always yields a plain list.
+     */
+    public function isList(): bool;
+
+    /**
+     * Enable list mode for the whole data set.
+     *
+     * Setting this clears any pagination already set.
+     * Setting this clears any cursor already set.
+     *
+     * @phpstan-return static<T>
+     */
+    public function withDefaultList(): static;
+
+    /**
+     * Enable list mode, i.e. the result is a plain list of data items.
+     *
+     * Useful for relatively small data sets which are fetched as a whole, for example to fill in
+     * a select input in a web application. Pass `$maxItems` to cap the number of fetched items;
+     * it is applied as a limit, so an already applied limit and/or offset is replaced by it.
+     *
+     * List mode only defines the shape of the result. An explicit limit and/or offset may still be
+     * applied on top of it with {@see self::withLimit()} and the result stays a plain list.
+     *
+     * Setting this clears any pagination already set.
+     * Setting this clears any cursor already set.
+     *
+     * @phpstan-param int<0, max>|null $maxItems
+     *
+     * @phpstan-return static<T>
+     */
+    public function withList(int|null $maxItems = null): static;
+
+    /**
+     * Remove the list mode.
+     *
+     * When `$undo` is `TRUE` the list mode is reverted to the state before calling the last
+     * `withList`. When `$undo` is `FALSE` (the default behavior) it clears the list mode completely.
+     *
+     * Note: this does not affect the value mode, which always yields a plain list of data items.
+     *
+     * @phpstan-return static<T>
+     */
+    public function withoutList(bool $undo = false): static;
+
+    /**
      * Enable data pagination with default page size and positioning on the first page.
      *
      * Setting this clears any limit and/or offset already set.
      * Setting this clears any cursor already set.
+     * Setting this clears the list mode if enabled.
      *
      * @phpstan-return static<T>
      */
@@ -51,6 +101,7 @@ interface ReadDataProviderCompositionInterface
      *
      * Setting this clears any limit and/or offset already set.
      * Setting this clears any cursor already set.
+     * Setting this clears the list mode if enabled.
      *
      * @phpstan-param int<0, max> $page
      * @phpstan-param int<0, max> $itemsPerPage
@@ -107,6 +158,7 @@ interface ReadDataProviderCompositionInterface
      *
      * Setting this clears any limit and/or offset already set.
      * Setting this clears any pagination already set.
+     * Setting this clears the list mode if enabled.
      *
      * @phpstan-return static<T>
      */
@@ -124,6 +176,7 @@ interface ReadDataProviderCompositionInterface
      *
      * Setting this clears any limit and/or offset already set.
      * Setting this clears any pagination already set.
+     * Setting this clears the list mode if enabled.
      *
      * @phpstan-param int<0, max> $limit
      *

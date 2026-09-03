@@ -218,6 +218,12 @@ class DataSource implements ReadDataProviderInterface
             return null;
         }
 
+        if ($this->list) {
+            // List mode is mutually exclusive with offset/page pagination, so a paginator
+            // of an underlying data source must not leak through it.
+            return null;
+        }
+
         if ($this->paginator) {
             return $this->paginator;
         }

@@ -56,8 +56,8 @@ interface ReadDataProviderInterface extends ReadDataProviderCompositionInterface
     /**
      * Get structured data object, which is more convenient for transferring state.
      *
-     * In cursor mode the response is a {@see CursorReadResponse}; in offset/page mode
-     * it is a {@see ReadResponse}; for value queries it is a flat array.
+     * In list mode the response is a flat array; in cursor mode it is a {@see CursorReadResponse};
+     * in offset/page mode it is a {@see ReadResponse}. Value queries are always in list mode.
      *
      * @return T[]|ReadResponse<T>|CursorReadResponse<T>
      */
@@ -65,6 +65,9 @@ interface ReadDataProviderInterface extends ReadDataProviderCompositionInterface
 
     /**
      * Get result as list of items.
+     *
+     * Requires the data provider to be in list mode, i.e. list mode enabled explicitly with
+     * `withList()`/`withDefaultList()` or a value query.
      *
      * An exception is thrown if the current data provider state does not support this type of result.
      *

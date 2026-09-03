@@ -289,6 +289,44 @@ final class PersonReadModelTest extends TestCase
         self::assertSame(ReadDataProviderCompositionInterface::DEFAULT_CURSOR_SIZE, $paginator->getLimit());
     }
 
+    // --- List mode delegation ---
+
+    public function testWithListDelegatesToTheDataSourceAndReturnsWholeDataSet(): void
+    {
+        $model = $this->model->withList();
+
+        self::assertTrue($model->isList());
+        self::assertFalse($model->isPaginated());
+        self::assertSame([1, 2, 3, 4, 5], $this->ids($model));
+        self::assertIsArray($model->getResult());
+        self::assertCount(5, $model->getListResult());
+    }
+
+    public function testWithDefaultListDelegatesToTheDataSource(): void
+    {
+        $model = $this->model->withDefaultList();
+
+        self::assertTrue($model->isList());
+        self::assertCount(5, $model->getListResult());
+    }
+
+    public function testWithListCapDelegatesToTheDataSource(): void
+    {
+        $model = $this->model->withList(2);
+
+        self::assertTrue($model->isList());
+        self::assertCount(2, $model->getListResult());
+        self::assertSame(5, $model->totalCount());
+    }
+
+    public function testWithoutListDelegatesToTheDataSource(): void
+    {
+        $model = $this->model->withList()->withoutList();
+
+        self::assertFalse($model->isList());
+        self::assertInstanceOf(ReadResponse::class, $model->getResult());
+    }
+
     // --- getListResult / getPaginationResult / getCursorResult delegation ---
 
     public function testGetPaginationResultDelegatesToDataSource(): void

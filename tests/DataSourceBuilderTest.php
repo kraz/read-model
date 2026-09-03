@@ -101,6 +101,30 @@ final class DataSourceBuilderTest extends TestCase
         self::assertCount(5, $ds->data());
     }
 
+    public function testCreateAppliesTheListModeToTheDataSource(): void
+    {
+        $ds = $this->makeBuilder()
+            ->withData($this->people())
+            ->withList()
+            ->create();
+
+        self::assertTrue($ds->isList());
+        self::assertFalse($ds->isPaginated());
+        self::assertCount(5, $ds->getListResult());
+    }
+
+    public function testCreateAppliesTheListModeCapToTheDataSource(): void
+    {
+        $ds = $this->makeBuilder()
+            ->withData($this->people())
+            ->withList(2)
+            ->create();
+
+        self::assertTrue($ds->isList());
+        self::assertCount(2, $ds->getListResult());
+        self::assertSame(5, $ds->totalCount());
+    }
+
     public function testCreateWithArrayCollectionDataProducesWorkingDataSource(): void
     {
         $ds = $this->makeBuilder()
@@ -183,6 +207,8 @@ final class DataSourceBuilderTest extends TestCase
         self::assertNotSame($builder, $builder->withoutPagination());
         self::assertNotSame($builder, $builder->withLimit(5));
         self::assertNotSame($builder, $builder->withoutLimit());
+        self::assertNotSame($builder, $builder->withList());
+        self::assertNotSame($builder, $builder->withoutList());
         self::assertNotSame($builder, $builder->withQueryRequest(QueryRequest::create()));
         self::assertNotSame($builder, $builder->withItemNormalizer(static fn (mixed $item): mixed => $item));
         self::assertNotSame($builder, $builder->withoutItemNormalizer());

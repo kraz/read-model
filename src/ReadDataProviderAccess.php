@@ -154,7 +154,8 @@ trait ReadDataProviderAccess
     {
         $data = $this->data();
 
-        if ($this->isValue()) {
+        // Covers the value mode as well, which always yields a plain list of data items.
+        if ($this->isList()) {
             return $data;
         }
 
