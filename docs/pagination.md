@@ -302,3 +302,25 @@ $queryRequest = QueryRequest::create()->withCursor(cursor: $token, limit: 20);
 $readModel = $readModel->withQueryRequest($queryRequest);
 // equivalent to: $readModel->withCursor($token, 20)
 ```
+
+A `QueryRequest` may also carry a query expression. By default it **replaces** the query expressions
+already applied to the read model; pass `append: true` to add it on top instead:
+
+```php
+$readModel = $readModel->withQueryRequest($queryRequest, append: true);
+```
+
+The request can also apply itself to a read model, which reads better inside a pipeline:
+
+```php
+$readModel = $queryRequest->appendTo($readModel); // appends the query expression
+$readModel = $queryRequest->assignTo($readModel); // replaces the query expressions
+```
+
+> [!NOTE]
+> `QueryRequest::appendTo()` used to replace the applied query expressions. It now appends, matching its
+> name and `QueryExpression::appendTo()`. Use the new `assignTo()` where the old replacing behavior is
+> wanted.
+
+Both return the read model unchanged when the request is empty. Either way, the pagination, limit/offset
+and cursor state carried by the request always replaces the read model's current one.

@@ -602,12 +602,12 @@ trait ReadDataProviderComposition
     }
 
     #[Override]
-    public function withQueryRequest(QueryRequest $queryRequest): static
+    public function withQueryRequest(QueryRequest $queryRequest, bool $append = false): static
     {
         /** @phpstan-var static<T> $cloned */
         $cloned = clone $this;
         if ($queryRequest->getQuery() !== null) {
-            $cloned = $cloned->withQueryExpression($queryRequest->getQuery());
+            $cloned = $cloned->withQueryExpression($queryRequest->getQuery(), $append);
         }
 
         if ($queryRequest->getPage() !== null && $queryRequest->getItemsPerPage() !== null) {
@@ -627,10 +627,10 @@ trait ReadDataProviderComposition
     }
 
     #[Override]
-    public function handleInput(array $input, array $fieldsOperator = [], array $fieldsIgnoreCase = []): static
+    public function handleInput(array $input, array $fieldsOperator = [], array $fieldsIgnoreCase = [], bool $append = false): static
     {
         /** @phpstan-var static<T> $dataSource */
-        $dataSource = static::applyInputTo($this, $input, $fieldsOperator, $fieldsIgnoreCase);
+        $dataSource = static::applyInputTo($this, $input, $fieldsOperator, $fieldsIgnoreCase, $append);
 
         return $dataSource;
     }
@@ -645,7 +645,7 @@ trait ReadDataProviderComposition
      *
      * @phpstan-template J of ReadDataProviderCompositionInterface<object|array<string, mixed>>
      */
-    public static function applyInputTo(ReadDataProviderCompositionInterface $target, array $input, array $fieldsOperator = [], array $fieldsIgnoreCase = []): ReadDataProviderCompositionInterface
+    public static function applyInputTo(ReadDataProviderCompositionInterface $target, array $input, array $fieldsOperator = [], array $fieldsIgnoreCase = [], bool $append = false): ReadDataProviderCompositionInterface
     {
         $ref    = new ReflectionObject($target);
         $fields = $ref->getConstants(ReflectionClassConstant::IS_PUBLIC);
@@ -655,7 +655,7 @@ trait ReadDataProviderComposition
         $request = QueryRequest::assemble($input, $fields, $fieldsOperator, $fieldsIgnoreCase);
 
         /** @phpstan-var J $result */
-        $result = $target->withQueryRequest($request);
+        $result = $target->withQueryRequest($request, $append);
 
         return $result;
     }

@@ -164,6 +164,9 @@ $readModel = $readModel
     ->withQueryExpression($userFilter, append: true); // added on top
 ```
 
+The same `append` flag is accepted by the request-driven entry points — `withQueryRequest()`,
+`handleInput()` and `handleRequest()` — see [Handling User Input](#handling-user-input).
+
 ### Removing expressions
 
 Clear the current expression (all history is discarded):
@@ -249,4 +252,42 @@ public function list(Request $request, InvoicesReadModel $readModel): JsonRespon
 }
 ```
 
-This parses standard query parameters and maps them to `FilterExpression` and pagination automatically. For custom validation or field restrictions, apply specific `QueryExpression` objects before calling `handleRequest()`.
+This parses standard query parameters and maps them to `FilterExpression` and pagination automatically.
+
+### Keeping your own filters alongside user input
+
+`handleRequest()`, `handleInput()` and `withQueryRequest()` **replace** the currently applied query
+expressions by default, exactly like `withQueryExpression()`. Pass `append: true` as the last argument to
+add the incoming expression on top of what is already applied. This is what you want whenever a
+non-negotiable restriction — tenant, ownership, soft-delete — has to survive whatever the caller sends:
+
+```php
+public function list(Request $request, InvoicesReadModel $readModel): JsonResponse
+{
+    $tenantFilter = QueryExpression::create()
+        ->andWhere(FilterExpression::create()->equalTo('tenantId', $this->tenantId));
+
+    return new JsonResponse(
+        $readModel
+            ->withQueryExpression($tenantFilter)    // always applied
+            ->handleRequest($request, append: true) // user input added on top
+            ->getResult()
+    );
+}
+```
+
+The flag behaves identically on the array- and value-object-based entry points:
+
+```php
+$readModel = $readModel->handleInput($input, append: true);
+$readModel = $readModel->withQueryRequest($queryRequest, append: true);
+```
+
+Only the query expression is affected. Pagination, limit/offset and cursor state carried by the request
+are single-valued and always replace whatever was set before, with or without `append`.
+
+`append` is the last parameter of `handleRequest()` and `handleInput()`, after `$fieldsOperator` and
+`$fieldsIgnoreCase`; use the named argument (as above) unless you pass those too.
+
+For custom validation or field restrictions, apply specific `QueryExpression` objects before calling
+`handleRequest()`.

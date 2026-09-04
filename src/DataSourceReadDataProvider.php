@@ -326,10 +326,10 @@ trait DataSourceReadDataProvider
     }
 
     #[Override]
-    public function withQueryRequest(QueryRequest $queryRequest): static
+    public function withQueryRequest(QueryRequest $queryRequest, bool $append = false): static
     {
         $clone             = clone $this;
-        $clone->dataSource = $clone->dataSource()->withQueryRequest($queryRequest);
+        $clone->dataSource = $clone->dataSource()->withQueryRequest($queryRequest, $append);
 
         return $clone;
     }
@@ -398,7 +398,7 @@ trait DataSourceReadDataProvider
     }
 
     #[Override]
-    public function handleInput(array $input, array $fieldsOperator = [], array $fieldsIgnoreCase = []): static
+    public function handleInput(array $input, array $fieldsOperator = [], array $fieldsIgnoreCase = [], bool $append = false): static
     {
         $clone      = clone $this;
         $dataSource = $clone->dataSource();
@@ -407,11 +407,11 @@ trait DataSourceReadDataProvider
             throw new RuntimeException('Can not apply the requested input to this data source!');
         }
 
-        return $method($clone, $input, $fieldsOperator, $fieldsIgnoreCase);
+        return $method($clone, $input, $fieldsOperator, $fieldsIgnoreCase, $append);
     }
 
     #[Override]
-    public function handleRequest(object $request, array $fieldsOperator = [], array $fieldsIgnoreCase = []): static
+    public function handleRequest(object $request, array $fieldsOperator = [], array $fieldsIgnoreCase = [], bool $append = false): static
     {
         $clone      = clone $this;
         $dataSource = $clone->dataSource();
@@ -420,6 +420,6 @@ trait DataSourceReadDataProvider
             throw new RuntimeException('Can not apply the request to this data source!');
         }
 
-        return $method($clone, $request, $fieldsOperator, $fieldsIgnoreCase);
+        return $method($clone, $request, $fieldsOperator, $fieldsIgnoreCase, $append);
     }
 }

@@ -205,6 +205,18 @@ public function list(Request $request, InvoicesReadModel $readModel): JsonRespon
 
 The request's query string is interpreted as filter parameters. The exact format depends on the client, but it maps to `FilterExpression` and pagination internally.
 
+By default the parsed expression **replaces** any query expression already applied to the read model.
+Pass `append: true` to keep your own filters and add the request's on top:
+
+```php
+$data = $readModel
+    ->withQueryExpression($tenantFilter)
+    ->handleRequest($request, append: true)
+    ->getResult();
+```
+
+See [Handling User Input](filtering.md#handling-user-input) for the full picture.
+
 ## Field Mapping
 
 If the column names in your database differ from the field names you want to expose to callers, use field mapping:

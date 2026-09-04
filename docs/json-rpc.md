@@ -253,6 +253,16 @@ public function list(Request $request, OrdersReadModel $readModel): JsonResponse
 }
 ```
 
+The parsed expression replaces any query expression already applied. Pass `append: true` to add it on top
+of your own filters instead — see [Handling User Input](filtering.md#handling-user-input):
+
+```php
+$readModel
+    ->withQueryExpression($tenantFilter)
+    ->handleRequest($request, append: true)
+    ->getResult();
+```
+
 ## Testing with a Fake Client
 
 The test pattern mirrors the standard in-memory approach: inject a fake client that returns controlled data.

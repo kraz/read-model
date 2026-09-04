@@ -7,6 +7,7 @@ namespace Kraz\ReadModel\Tests\Query;
 use InvalidArgumentException;
 use Kraz\ReadModel\Query\FilterExpression;
 use Kraz\ReadModel\Query\QueryRequest;
+use Kraz\ReadModel\ReadDataProviderInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
@@ -719,5 +720,57 @@ final class QueryRequestTest extends TestCase
 
         self::assertSame('tok', $request->getCursor());
         self::assertSame(10, $request->getCursorLimit());
+    }
+
+    // ------------------------------------------------------------------
+    // appendTo / assignTo
+    // ------------------------------------------------------------------
+
+    public function testAppendToReturnsProviderUnchangedForEmptyRequest(): void
+    {
+        $provider = $this->createMock(ReadDataProviderInterface::class);
+        $provider->expects(self::never())->method('withQueryRequest');
+
+        $request = QueryRequest::create();
+
+        self::assertSame($provider, $request->appendTo($provider));
+    }
+
+    public function testAppendToCallsWithQueryRequestWithAppendEnabled(): void
+    {
+        $request = QueryRequest::create()->withLimit(5);
+
+        $provider = $this->createMock(ReadDataProviderInterface::class);
+        $provider
+            ->expects(self::once())
+            ->method('withQueryRequest')
+            ->with($request, true)
+            ->willReturnSelf();
+
+        self::assertSame($provider, $request->appendTo($provider));
+    }
+
+    public function testAssignToReturnsProviderUnchangedForEmptyRequest(): void
+    {
+        $provider = $this->createMock(ReadDataProviderInterface::class);
+        $provider->expects(self::never())->method('withQueryRequest');
+
+        $request = QueryRequest::create();
+
+        self::assertSame($provider, $request->assignTo($provider));
+    }
+
+    public function testAssignToCallsWithQueryRequestWithAppendDisabled(): void
+    {
+        $request = QueryRequest::create()->withLimit(5);
+
+        $provider = $this->createMock(ReadDataProviderInterface::class);
+        $provider
+            ->expects(self::once())
+            ->method('withQueryRequest')
+            ->with($request, false)
+            ->willReturnSelf();
+
+        self::assertSame($provider, $request->assignTo($provider));
     }
 }

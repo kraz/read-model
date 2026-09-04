@@ -266,7 +266,7 @@ class DataSource implements ReadDataProviderInterface
     }
 
     #[Override]
-    public function handleRequest(object $request, array $fieldsOperator = [], array $fieldsIgnoreCase = []): static
+    public function handleRequest(object $request, array $fieldsOperator = [], array $fieldsIgnoreCase = [], bool $append = false): static
     {
         throw new LogicException('Unsupported operation. The data source can not handle requests.');
     }

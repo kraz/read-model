@@ -231,6 +231,16 @@ public function index(Request $request, UsersReadModel $readModel): JsonResponse
 }
 ```
 
+The parsed expression replaces any query expression already applied. Pass `append: true` to add it on top
+of your own filters instead — see [Handling User Input](filtering.md#handling-user-input):
+
+```php
+$readModel
+    ->withQueryExpression($tenantFilter)
+    ->handleRequest($request, append: true)
+    ->getResult();
+```
+
 ## Read Model Descriptor (Field Discovery)
 
 The library can introspect your Doctrine entities to discover available fields automatically. This is used to validate incoming filter field names and to build auto-complete helpers:

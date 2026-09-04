@@ -160,6 +160,24 @@ final class QueryRequest implements JsonSerializable, Stringable
             return $dataProvider;
         }
 
+        return $dataProvider->withQueryRequest($this, true);
+    }
+
+    /**
+     * Apply this request to the given data provider, replacing any currently applied query expressions.
+     *
+     * @phpstan-param ReadDataProviderInterface<T> $dataProvider
+     *
+     * @return ReadDataProviderInterface<T>
+     *
+     * @phpstan-template T of object
+     */
+    public function assignTo(ReadDataProviderInterface $dataProvider): ReadDataProviderInterface
+    {
+        if ($this->isEmpty()) {
+            return $dataProvider;
+        }
+
         return $dataProvider->withQueryRequest($this);
     }
 

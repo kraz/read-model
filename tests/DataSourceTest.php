@@ -713,6 +713,60 @@ final class DataSourceTest extends TestCase
         self::assertSame([3, 4], $this->ids($applied));
     }
 
+    public function testWithQueryRequestReplacesQueryExpressionByDefault(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->people());
+
+        $first = QueryExpression::create();
+        $first = $first->andWhere($first->expr()->equalTo('name', 'Alice'));
+
+        $second = QueryExpression::create();
+        $second = $second->andWhere($second->expr()->equalTo('name', 'Bob'));
+
+        $applied = $ds
+            ->withQueryExpression($first)
+            ->withQueryRequest(QueryRequest::create()->withQueryExpression($second));
+
+        self::assertCount(1, $applied->queryExpressions());
+        self::assertSame([2], $this->ids($applied));
+    }
+
+    public function testWithQueryRequestAppendsQueryExpressionWhenAppendIsTrue(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->people());
+
+        $first = QueryExpression::create();
+        $first = $first->andWhere($first->expr()->greaterThan('age', 24));
+
+        $second = QueryExpression::create();
+        $second = $second->andWhere($second->expr()->lowerThan('age', 35));
+
+        $applied = $ds
+            ->withQueryExpression($first)
+            ->withQueryRequest(QueryRequest::create()->withQueryExpression($second), true);
+
+        self::assertCount(2, $applied->queryExpressions());
+        self::assertSame([1, 2], $this->ids($applied));
+    }
+
+    public function testWithQueryRequestWithoutQueryKeepsCurrentQueryExpressionsWhenAppending(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->people());
+
+        $qry = QueryExpression::create();
+        $qry = $qry->andWhere($qry->expr()->equalTo('name', 'Carol'));
+
+        $applied = $ds
+            ->withQueryExpression($qry)
+            ->withQueryRequest(QueryRequest::create()->withPagination(1, 5), true);
+
+        self::assertCount(1, $applied->queryExpressions());
+        self::assertSame([3], $this->ids($applied));
+    }
+
     // ------------------------------------------------------------------
     // Query modifier
     // ------------------------------------------------------------------
@@ -861,6 +915,42 @@ final class DataSourceTest extends TestCase
         $clone = $ds->handleInput(['query' => $queryParam]);
 
         self::assertSame([3], $this->ids($clone));
+    }
+
+    public function testHandleInputReplacesQueryExpressionByDefault(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->people());
+
+        $current = QueryExpression::create();
+        $current = $current->andWhere($current->expr()->equalTo('name', 'Alice'));
+
+        $qry        = QueryExpression::create();
+        $qry        = $qry->andWhere($qry->expr()->equalTo('name', 'Carol'));
+        $queryParam = base64_encode((string) json_encode($qry->toArray()));
+
+        $clone = $ds->withQueryExpression($current)->handleInput(['query' => $queryParam]);
+
+        self::assertCount(1, $clone->queryExpressions());
+        self::assertSame([3], $this->ids($clone));
+    }
+
+    public function testHandleInputAppendsQueryExpressionWhenAppendIsTrue(): void
+    {
+        /** @var DataSource<PersonFixture> $ds */
+        $ds = new DataSource($this->people());
+
+        $current = QueryExpression::create();
+        $current = $current->andWhere($current->expr()->greaterThan('age', 24));
+
+        $qry        = QueryExpression::create();
+        $qry        = $qry->andWhere($qry->expr()->lowerThan('age', 35));
+        $queryParam = base64_encode((string) json_encode($qry->toArray()));
+
+        $clone = $ds->withQueryExpression($current)->handleInput(['query' => $queryParam], [], [], true);
+
+        self::assertCount(2, $clone->queryExpressions());
+        self::assertSame([1, 2], $this->ids($clone));
     }
 
     public function testHandleInputAcceptsItemsPerPageAsAlternativeToPageSize(): void

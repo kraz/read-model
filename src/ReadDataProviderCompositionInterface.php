@@ -277,9 +277,13 @@ interface ReadDataProviderCompositionInterface
     /**
      * Apply query expression and/or pagination with single request payload.
      *
+     * When `$append` is `FALSE` (the default) the query expression carried by the request replaces the
+     * currently applied query expressions. When `$append` is `TRUE` the query expression carried by the
+     * request (if any) is appended to the currently applied ones.
+     *
      * @phpstan-return static<T>
      */
-    public function withQueryRequest(QueryRequest $queryRequest): static;
+    public function withQueryRequest(QueryRequest $queryRequest, bool $append = false): static;
 
     /**
      * Assign read model descriptor.
@@ -367,21 +371,29 @@ interface ReadDataProviderCompositionInterface
     /**
      * Apply query expression and/or pagination from single input array.
      *
+     * When `$append` is `FALSE` (the default) the query expression assembled from the input replaces the
+     * currently applied query expressions. When `$append` is `TRUE` the assembled query expression (if any)
+     * is appended to the currently applied ones.
+     *
      * @phpstan-param array<string, mixed>  $input
      * @phpstan-param array<string, string> $fieldsOperator
      * @phpstan-param array<string, bool>   $fieldsIgnoreCase
      *
      * @phpstan-return static<T>
      */
-    public function handleInput(array $input, array $fieldsOperator = [], array $fieldsIgnoreCase = []): static;
+    public function handleInput(array $input, array $fieldsOperator = [], array $fieldsIgnoreCase = [], bool $append = false): static;
 
     /**
      * Apply query expression and/or pagination from single request object.
+     *
+     * When `$append` is `FALSE` (the default) the query expression assembled from the request replaces the
+     * currently applied query expressions. When `$append` is `TRUE` the assembled query expression (if any)
+     * is appended to the currently applied ones.
      *
      * @phpstan-param array<string, string> $fieldsOperator
      * @phpstan-param array<string, bool>   $fieldsIgnoreCase
      *
      * @phpstan-return static<T>
      */
-    public function handleRequest(object $request, array $fieldsOperator = [], array $fieldsIgnoreCase = []): static;
+    public function handleRequest(object $request, array $fieldsOperator = [], array $fieldsIgnoreCase = [], bool $append = false): static;
 }
