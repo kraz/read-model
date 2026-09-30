@@ -157,12 +157,14 @@ class InvoicesReadModel implements ReadDataProviderInterface
     {
         return (new DataSourceBuilder())
             ->withData(<<<'SQL'
-                SELECT i.id, i.invoice_number, i.amount, c.name AS client_name, i.issued_at
-                FROM invoice i
-                JOIN client c ON c.id = i.client_id
-                WHERE i.deleted_at IS NULL
+                SELECT r.* FROM (
+                    SELECT i.id, i.invoice_number, i.amount, c.name AS client_name, i.issued_at
+                    FROM invoice i
+                    JOIN client c ON c.id = i.client_id
+                    WHERE i.deleted_at IS NULL
+                ) r
                 /*#WHERE#*/
-                /*#ORDERBY#*/
+                ORDER BY /*#ORDERBY_B#*/r.issued_at DESC/*#ORDERBY_E#*/
             SQL)
             ->create($this->connection);
     }

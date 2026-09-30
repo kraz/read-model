@@ -63,14 +63,14 @@ class ProductsReadModel implements ReadDataProviderInterface
                     WHERE p.deleted_at IS NULL
                 ) r
                 /*#WHERE#*/
-                /*#ORDERBY_B#*/ORDER BY r.id ASC/*#ORDERBY_E#*/
+                ORDER BY /*#ORDERBY_B#*/r.id ASC/*#ORDERBY_E#*/
             SQL)
             ->create($this->connection);
     }    
 }
 ```
 
-The `/*#WHERE#*/` and `/*#ORDERBY#*/` markers are replaced automatically with generated SQL when filters and sorts are applied. When nothing is applied they are removed cleanly.
+The `/*#WHERE#*/` placeholder is replaced automatically with `WHERE <generated conditions>` when a filter is applied, and removed cleanly otherwise. The `/*#ORDERBY_B#*/ ... /*#ORDERBY_E#*/` section wraps a default sort expression: it is used as is when nothing is applied and replaced by the generated sort when the caller sorts. The `ORDER BY` keyword stays outside the section. See [Doctrine](docs/doctrine.md#raw-sql) for the details.
 
 ### ORM QueryBuilder
 

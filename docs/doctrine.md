@@ -82,7 +82,7 @@ Callers filter by `InvoicesReadModel::FIELD_CLIENT_NAME` and the library transla
 
 ### SQL with placeholder markers
 
-The recommended approach for raw SQL is to use `/*#WHERE#*/` and `/*#ORDERBY#*/` markers in your SQL string. The library replaces them automatically with generated WHERE and ORDER BY clauses:
+The recommended approach for raw SQL is to use `/*#WHERE#*/` and `/*#ORDERBY#*/` placeholders in your SQL string. The library replaces them automatically with generated `WHERE` and `ORDER BY` clauses:
 
 ```php
 use Kraz\ReadModelDoctrine\DataSourceBuilder;
@@ -106,9 +106,11 @@ class UsersReadModel implements ReadDataProviderInterface
     {
         return (new DataSourceBuilder())
             ->withData(<<<'SQL'
-                SELECT r.id, r.username, r.first_name || ' ' || r.last_name AS full_name, r.active
-                FROM users r
-                WHERE r.deleted_at IS NULL
+                SELECT r.* FROM (
+                    SELECT u.id, u.username, u.first_name || ' ' || u.last_name AS full_name, u.active
+                    FROM users u
+                    WHERE u.deleted_at IS NULL
+                ) r
                 /*#WHERE#*/
                 /*#ORDERBY#*/
             SQL)
@@ -117,22 +119,39 @@ class UsersReadModel implements ReadDataProviderInterface
 }
 ```
 
-The `/*#WHERE#*/` marker is replaced with `AND <generated conditions>` and `/*#ORDERBY#*/` with `ORDER BY <generated sort>`. If no filter/sort is applied, the markers are removed cleanly.
+The `/*#WHERE#*/` placeholder is replaced with `WHERE <generated conditions>` and `/*#ORDERBY#*/` with `ORDER BY <generated sort>`. If no filter/sort is applied, the placeholders are removed cleanly.
+
+Because the placeholders expand to complete clauses, keyword included, place them where the clause belongs and keep the fixed conditions of the query inside a subquery, as in the example above. Placing `/*#WHERE#*/` after an existing `WHERE` clause produces invalid SQL when a filter is applied.
+
+When the SQL contains no placeholder for a part that is applied, the whole statement is wrapped in `SELECT * FROM (...)` and the clause is appended to the wrapper.
 
 ### SQL template sections
 
-For more control, use named sections that wrap existing SQL:
+When the read model needs a default, use a section instead of a placeholder. A section wraps a default expression that the caller can override:
 
 ```sql
-SELECT u.id, u.name
-FROM users u
-WHERE u.active = true
-/*#WHERE_B#*/AND u.role = 'admin'/*#WHERE_E#*/
-/*#ORDERBY_B#*/ORDER BY u.name ASC/*#ORDERBY_E#*/
+SELECT r.* FROM (
+    SELECT u.id, u.name, u.role
+    FROM users u
+    WHERE u.active = true
+) r
+WHERE /*#WHERE_B#*/r.role = 'admin'/*#WHERE_E#*/
+ORDER BY /*#ORDERBY_B#*/r.name ASC/*#ORDERBY_E#*/
 ```
 
-The `_B` / `_E` suffix marks the beginning and end of a replaceable section. The content inside is used as a default and replaced when filters/sorts are applied.
-Notice that the `WHERE_B/E` and `ORDERBY_B/E` replace slightly different the contents they wrap - the filtering is partial, while the ordering is fully replaceable.
+The `_B` / `_E` suffix marks the beginning and end of a section. The content between the markers is the default: when nothing is applied the markers are removed and the default stays in place. When a filter or sort is applied, everything between the markers, the default included, is replaced by the generated expression.
+
+Unlike a placeholder, a section does not add the keyword. Keep `WHERE` and `ORDER BY` outside the markers, otherwise they are replaced together with the default and the resulting SQL is invalid:
+
+```sql
+-- Wrong: the keyword is lost when the caller sorts
+/*#ORDERBY_B#*/ORDER BY r.name ASC/*#ORDERBY_E#*/
+
+-- Right: the keyword stays, only the default expression is replaced
+ORDER BY /*#ORDERBY_B#*/r.name ASC/*#ORDERBY_E#*/
+```
+
+A typical read model always has a default `ORDER BY` this way, so the result order is stable even when the caller does not sort, while the caller can still override it when required. Conditions that must always apply, like `u.active = true` above, belong outside the section, since a default `WHERE` expression is dropped as soon as the caller filters.
 
 ### Raw SQL with bound parameters
 
@@ -149,12 +168,14 @@ protected function createDataSource(): DataSource
     return $this->rawQuery(
         $this->connection,
         <<<'SQL'
-            SELECT r.id, r.number, r.total
-            FROM orders r
-            WHERE r.tenant_id = :tenant_id
-            AND r.deleted_at IS NULL
+            SELECT r.* FROM (
+                SELECT o.id, o.number, o.total
+                FROM orders o
+                WHERE o.tenant_id = :tenant_id
+                AND o.deleted_at IS NULL
+            ) r
             /*#WHERE#*/
-            /*#ORDERBY#*/
+            ORDER BY /*#ORDERBY_B#*/r.number ASC/*#ORDERBY_E#*/
         SQL,
         $params
     );
