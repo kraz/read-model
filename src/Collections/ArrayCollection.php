@@ -274,12 +274,14 @@ class ArrayCollection implements Collection, Stringable
     }
 
     /**
-     * This breaks assumptions about the template type, but it would
-     * be a backwards-incompatible change to remove this method
+     * This breaks assumptions about the template type (appending always
+     * produces an int key, which is not necessarily a TKey), but it would
+     * be a backwards-incompatible change to remove this method.
      */
     #[Override]
     public function add(mixed $element): void
     {
+        // @phpstan-ignore assign.propertyType (see method comment)
         $this->elements[] = $element;
     }
 
